@@ -436,7 +436,7 @@ export default function AdminReportsPage() {
                           </div>
                         </td>
                         <td className="px-3 py-3">
-                          <EyeBtn onClick={() => setDetail({ kind:"ownership", data:o, unitName: unit?.name ?? unit?.code })} />
+                          <EyeBtn onClick={() => setDetail({ kind:"ownership", data:o, unitName: unit?.name ?? unit?.code ?? undefined })} />
                         </td>
                       </tr>
                     );
