@@ -37,9 +37,48 @@ export default function AdminOwnershipsPage() {
   const loading = lo || ls || la || lu;
 
   /* ── filters ── */
-  const [search,       setSearch]       = useState("");
-  const [filterSh,     setFilterSh]     = useState("");
-  const [filterUnit,   setFilterUnit]   = useState("");
+  const [search,     setSearch]     = useState("");
+  const [filterUnit, setFilterUnit] = useState("");
+
+  /* ── shareholders by unit (from API) ── */
+  const [unitShareholders, setUnitShareholders] = useState<import("@/app/lib/types").ShareholderUnitDto[]>([]);
+  const [loadingUnit,      setLoadingUnit]      = useState(false);
+
+  /* ── apartments for selected unit (fetched from API) ── */
+  const [unitApts,     setUnitApts]     = useState<import("@/app/lib/types").ApartmentDto[]>([]);
+  const [loadingUnitApts, setLoadingUnitApts] = useState(false);
+
+  async function handleUnitChange(unitId: string) {
+    setFilterUnit(unitId);
+    setSearch("");
+    setUnitShareholders([]);
+    setUnitApts([]);
+    if (!unitId) return;
+
+    // Fetch both in parallel
+    setLoadingUnit(true);
+    setLoadingUnitApts(true);
+    try {
+      const [shData, aptData] = await Promise.all([
+        api.shareholderUnits.byUnit(parseInt(unitId)),
+        api.apartments.byUnit(parseInt(unitId)),
+      ]);
+      setUnitShareholders(shData);
+      setUnitApts(aptData);
+    } catch {
+      setUnitShareholders([]);
+      setUnitApts([]);
+    } finally {
+      setLoadingUnit(false);
+      setLoadingUnitApts(false);
+    }
+  }
+
+  // Filter ownerships by the apartments of the selected unit
+  const unitAptIds = useMemo(
+    () => filterUnit ? new Set(unitApts.map(a => a.id)) : null,
+    [filterUnit, unitApts]
+  );
 
   /* ── modals ── */
   const [showAdd,  setShowAdd]  = useState(false);
@@ -64,6 +103,7 @@ export default function AdminOwnershipsPage() {
     return map;
   }, [ownerships]);
 
+  /* ── filter ownerships by unit's apartments ── */
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return ownerships.filter((o) => {
@@ -73,11 +113,11 @@ export default function AdminOwnershipsPage() {
         (o.shareholderName ?? "").toLowerCase().includes(q) ||
         (o.apartmentNumber ?? "").toLowerCase().includes(q) ||
         (unit?.name ?? "").toLowerCase().includes(q);
-      const mSh   = !filterSh   || String(o.shareholderId) === filterSh;
-      const mUnit = !filterUnit || (apt ? String(apt.unitId) === filterUnit : false);
-      return mQ && mSh && mUnit;
+      // If unit selected: only show ownerships for apartments in that unit
+      const mUnit = !unitAptIds || unitAptIds.has(o.apartmentId);
+      return mQ && mUnit;
     });
-  }, [ownerships, apartments, units, search, filterSh, filterUnit]);
+  }, [ownerships, apartments, units, search, unitAptIds]);
 
   /* ── summary stats ── */
   const totalOwnerships = ownerships.length;
@@ -179,6 +219,7 @@ export default function AdminOwnershipsPage() {
 
       {/* ── Filters ── */}
       <div className="flex flex-wrap gap-2 mb-4">
+        {/* Search */}
         <div className="relative flex-1 min-w-48">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color:"var(--muted)" }} />
           <input value={search} onChange={e => setSearch(e.target.value)}
@@ -193,32 +234,72 @@ export default function AdminOwnershipsPage() {
           )}
         </div>
 
-        <select value={filterSh} onChange={e => setFilterSh(e.target.value)}
-          className="px-3 py-2 rounded-xl text-sm border focus:outline-none"
-          style={inputStyle()}>
-          <option value="">كل المساهمين</option>
-          {shareholders.map(s => (
-            <option key={s.id} value={s.id}>{s.fullName}</option>
-          ))}
-        </select>
+        {/* Unit dropdown — calls API ShareholderUnits/by-unit on change */}
+        <div className="relative min-w-52">
+          <Building2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color:"var(--muted)" }} />
+          <select
+            value={filterUnit}
+            onChange={e => handleUnitChange(e.target.value)}
+            className="w-full pr-9 pl-4 py-2 rounded-xl text-sm border focus:outline-none appearance-none"
+            style={inputStyle()}
+          >
+            <option value="">كل الوحدات</option>
+            {units.map(u => (
+              <option key={u.id} value={u.id}>
+                {u.name ?? u.code}
+              </option>
+            ))}
+          </select>
+          {loadingUnit && (
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border-2 border-indigo-300 border-t-indigo-600 rounded-full animate-spin" />
+          )}
+        </div>
 
-        <select value={filterUnit} onChange={e => setFilterUnit(e.target.value)}
-          className="px-3 py-2 rounded-xl text-sm border focus:outline-none"
-          style={inputStyle()}>
-          <option value="">كل الوحدات</option>
-          {units.map(u => (
-            <option key={u.id} value={u.id}>{u.name ?? u.code}</option>
-          ))}
-        </select>
-
-        {(search || filterSh || filterUnit) && (
-          <button onClick={() => { setSearch(""); setFilterSh(""); setFilterUnit(""); }}
+        {(search || filterUnit) && (
+          <button
+            onClick={() => { setSearch(""); handleUnitChange(""); }}
             className="px-3 py-2 rounded-xl text-xs font-medium border transition-colors"
             style={{ color:"#ef4444", borderColor:"rgba(239,68,68,.3)", background:"rgba(239,68,68,.06)" }}>
             مسح
           </button>
         )}
       </div>
+
+      {/* Unit summary — shown when unit selected */}
+      {filterUnit && (() => {
+        const selectedUnit = units.find(u => String(u.id) === filterUnit);
+        const totalPct = filtered.reduce((s, o) => s + o.ownershipPercentage, 0);
+        return (
+          <div className="mb-4 p-4 rounded-2xl border flex flex-wrap items-center gap-4"
+            style={{ background:"rgba(99,102,241,.06)", borderColor:"rgba(99,102,241,.2)" }}>
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-sm font-bold"
+                style={{ background:"linear-gradient(135deg,#6366f1,#7c3aed)" }}>
+                {selectedUnit?.code?.[0] ?? selectedUnit?.name?.[0] ?? "P"}
+              </div>
+              <div>
+                <p className="text-sm font-bold" style={{ color:"var(--foreground)" }}>
+                  {selectedUnit?.name ?? selectedUnit?.code}
+                </p>
+                <p className="text-xs" style={{ color:"var(--muted)" }}>{selectedUnit?.address}</p>
+              </div>
+            </div>
+            <div className="flex gap-4 flex-wrap">
+              {[
+                { label:"مساهمون",        value: unitShareholders.length,              clr:"#7c3aed" },
+                { label:"إجمالي الأسهم",  value: unitShareholders.reduce((s,su)=>s+su.sharesCount,0), clr:"#6366f1" },
+                { label:"ملكيات مسجلة",   value: filtered.length,                     clr:"#0ea5e9" },
+                { label:"إجمالي النسب",   value:`${totalPct.toFixed(1)}%`, clr: totalPct >= 100 ? "#10b981" : "#f59e0b" },
+              ].map(({ label, value, clr }) => (
+                <div key={label} className="text-center">
+                  <p className="text-lg font-bold" style={{ color:clr }}>{value}</p>
+                  <p className="text-[10px]" style={{ color:"var(--muted)" }}>{label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Error ── */}
       {eo && (
