@@ -48,13 +48,22 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 // ─── Fallback wrapper ─────────────────────────────────────────────────────────
+// Only falls back to mock on genuine network failures (CORS, offline, etc.)
+// Real API errors (4xx, 5xx) are thrown as-is
 async function withFallback<T>(realFn: () => Promise<T>, mockFn: () => T): Promise<T> {
   try {
     return await realFn();
   } catch (err) {
-    console.warn("[API] Falling back to mock data:", (err as Error).message);
-    await delay(150);
-    return mockFn();
+    const msg = (err as Error).message ?? "";
+    // Only fall back if it's a true network/fetch error, not an API error
+    const isNetworkError = msg.includes("fetch") || msg.includes("NetworkError") || msg.includes("Failed to fetch");
+    if (isNetworkError) {
+      console.warn("[API] Network error, using mock data:", msg);
+      await delay(150);
+      return mockFn();
+    }
+    // Re-throw API errors (401, 404, 500, etc.)
+    throw err;
   }
 }
 

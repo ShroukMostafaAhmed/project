@@ -16,8 +16,7 @@ import {
   ApartmentOwnershipDto,
   CreateApartmentOwnershipDto,
   UpdateApartmentOwnershipDto,
-  ApartmentStatusLabels,
-  ApartmentStatusColors,
+  ownershipBadge,
 } from "@/app/lib/types";
 import { api } from "@/app/lib/api";
 
@@ -56,6 +55,15 @@ export default function AdminOwnershipsPage() {
   const [editPct, setEditPct] = useState(0);
 
   /* ── derived ── */
+  // Map: apartmentId → total ownership %
+  const aptTotalPct = useMemo(() => {
+    const map: Record<number, number> = {};
+    ownerships.forEach(o => {
+      map[o.apartmentId] = (map[o.apartmentId] ?? 0) + o.ownershipPercentage;
+    });
+    return map;
+  }, [ownerships]);
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return ownerships.filter((o) => {
@@ -243,7 +251,7 @@ export default function AdminOwnershipsPage() {
             <table className="min-w-full text-sm">
               <thead>
                 <tr style={{ borderBottom:"1px solid var(--card-border)" }}>
-                  {["م","المساهم","الشقة","الوحدة","حالة الشقة","نسبة الملكية","إجراءات"].map(h => (
+                  {["م","المساهم","الشقة","الوحدة","حالة الملكية","نسبة الملكية","إجراءات"].map(h => (
                     <th key={h} className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide whitespace-nowrap"
                       style={{ color:"var(--muted)", background:"rgba(128,128,128,.04)" }}>
                       {h}
@@ -309,13 +317,21 @@ export default function AdminOwnershipsPage() {
                         </span>
                       </td>
 
-                      {/* Apartment status */}
+                      {/* Completion status */}
                       <td className="px-4 py-3.5">
-                        {apt ? (
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ApartmentStatusColors[apt.status]}`}>
-                            {ApartmentStatusLabels[apt.status]}
-                          </span>
-                        ) : <span style={{ color:"var(--muted)" }}>—</span>}
+                        {(() => {
+                          const totalPct = aptTotalPct[o.apartmentId] ?? 0;
+                          const b = ownershipBadge(totalPct);
+                          return (
+                            <div className={`inline-flex flex-col items-start gap-0.5 px-2.5 py-1.5 rounded-xl border ${b.bg}`}>
+                              <div className="flex items-center gap-1.5">
+                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${b.dot}`} />
+                                <span className={`text-xs font-bold ${b.color}`}>{b.label}</span>
+                              </div>
+                              <span className={`text-[10px] ${b.color} opacity-70`}>{b.sub}</span>
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* Ownership % */}
