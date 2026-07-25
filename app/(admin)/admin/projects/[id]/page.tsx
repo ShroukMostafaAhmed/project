@@ -9,14 +9,13 @@ import {
   Printer, Edit2, Users, CheckCircle,
 } from "lucide-react";
 import DashboardShell from "@/app/components/layout/DashboardShell";
-import Badge from "@/app/components/ui/Badge";
 import Modal from "@/app/components/ui/Modal";
 import { Skeleton } from "@/app/components/ui/Skeleton";
 import { api } from "@/app/lib/api";
 import {
   UnitDto, ApartmentDto, ApartmentOwnershipDto,
-  ApartmentStatus, ApartmentStatusColors, ApartmentStatusLabels,
-  CreateApartmentDto,
+  ApartmentStatus, ApartmentStatusLabels,
+  CreateApartmentDto, ownershipBadge,
 } from "@/app/lib/types";
 
 export default function ProjectDetailPage({
@@ -50,16 +49,28 @@ export default function ProjectDetailPage({
     });
   }, [params, router]);
 
-  const loadOwn = useCallback(async (aptId: number) => {
-    if (ownMap[aptId]) return;
-    const d = await api.ownerships.byApartment(aptId);
-    setOwnMap((p) => ({ ...p, [aptId]: d }));
-  }, [ownMap]);
+  // Pre-load all ownerships for all apartments to show completion status
+  const [allOwn, setAllOwn] = useState<Record<number, ApartmentOwnershipDto[]>>({});
+
+  useEffect(() => {
+    if (apartments.length === 0) return;
+    apartments.forEach(async (apt) => {
+      const d = await api.ownerships.byApartment(apt.id);
+      setAllOwn(p => ({ ...p, [apt.id]: d }));
+    });
+  }, [apartments]);
+
+  function getAptPct(aptId: number): number {
+    return (allOwn[aptId] ?? []).reduce((s, o) => s + o.ownershipPercentage, 0);
+  }
 
   function toggle(id: number) {
     if (expandedId === id) { setExpandedId(null); return; }
     setExpandedId(id);
-    loadOwn(id);
+    // load on expand using allOwn (already fetched)
+    if (!ownMap[id]) {
+      api.ownerships.byApartment(id).then(d => setOwnMap(p => ({ ...p, [id]: d })));
+    }
   }
 
   async function addApartment(e: React.FormEvent) {
@@ -105,16 +116,36 @@ export default function ProjectDetailPage({
 
   if (!unit) return null;
 
-  const statusCounts = ([0,1,2,3] as ApartmentStatus[]).map((s) => ({
-    s,
-    label: ApartmentStatusLabels[s],
-    count: apartments.filter((a) => a.status === s).length,
-    bg:    s===0?"bg-emerald-50 border-emerald-200 text-emerald-700"
-          :s===1?"bg-blue-50 border-blue-200 text-blue-700"
-          :s===2?"bg-amber-50 border-amber-200 text-amber-700"
-                :"bg-red-50 border-red-200 text-red-700",
-    dot:   s===0?"bg-emerald-500":s===1?"bg-blue-500":s===2?"bg-amber-500":"bg-red-500",
-  }));
+  const completedCount   = apartments.filter(a => getAptPct(a.id) >= 100).length;
+  const incompletedCount = apartments.filter(a => getAptPct(a.id) < 100 && getAptPct(a.id) > 0).length;
+  const emptyCount       = apartments.filter(a => getAptPct(a.id) === 0).length;
+
+  const completionSummary = [
+    {
+      label: "مكتمل",
+      count: completedCount,
+      bg:    "bg-emerald-50 border-emerald-200 text-emerald-700",
+      dot:   "bg-emerald-500",
+    },
+    {
+      label: "غير مكتمل",
+      count: incompletedCount,
+      bg:    "bg-amber-50 border-amber-200 text-amber-700",
+      dot:   "bg-amber-400",
+    },
+    {
+      label: "بدون ملكية",
+      count: emptyCount,
+      bg:    "bg-slate-50 border-slate-200 text-slate-600",
+      dot:   "bg-slate-300",
+    },
+    {
+      label: "إجمالي الشقق",
+      count: apartments.length,
+      bg:    "bg-indigo-50 border-indigo-200 text-indigo-700",
+      dot:   "bg-indigo-500",
+    },
+  ];
 
   const occupancy = apartments.length > 0
     ? Math.round(((apartments.length - apartments.filter(a=>a.status===ApartmentStatus.Available).length) / apartments.length)*100)
@@ -195,9 +226,16 @@ export default function ProjectDetailPage({
               </div>
 
               {/* Occupancy ring */}
-              <div className="bg-white/15 rounded-2xl px-6 py-4 text-center min-w-28 no-print">
-                <p className="text-3xl font-extrabold">{occupancy}%</p>
-                <p className="text-white/70 text-xs mt-0.5">نسبة الإشغال</p>
+              <div className="bg-white/15 rounded-2xl px-6 py-4 text-center min-w-36 no-print">
+                <p className="text-3xl font-extrabold">{completedCount}</p>
+                <p className="text-white/70 text-xs mt-0.5">شقة مكتملة</p>
+                <div className="mt-2 h-1.5 bg-white/20 rounded-full overflow-hidden">
+                  <div className="h-full bg-white rounded-full transition-all"
+                    style={{ width: `${apartments.length > 0 ? Math.round((completedCount/apartments.length)*100) : 0}%` }} />
+                </div>
+                <p className="text-white/50 text-[10px] mt-1">
+                  {apartments.length > 0 ? Math.round((completedCount/apartments.length)*100) : 0}% مكتمل
+                </p>
               </div>
             </div>
 
@@ -217,10 +255,10 @@ export default function ProjectDetailPage({
             </div>
           </div>
 
-          {/* Status cards */}
+          {/* Completion status cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-            {statusCounts.map(({ s, label, count, bg, dot }) => (
-              <div key={s} className={`rounded-xl border p-4 ${bg}`}>
+            {completionSummary.map(({ label, count, bg, dot }) => (
+              <div key={label} className={`rounded-xl border p-4 ${bg}`}>
                 <div className={`w-2.5 h-2.5 rounded-full ${dot} mb-2`} />
                 <p className="text-2xl font-bold">{count}</p>
                 <p className="text-xs font-medium mt-0.5 opacity-80">{label}</p>
@@ -272,9 +310,20 @@ export default function ProjectDetailPage({
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <Badge className={ApartmentStatusColors[apt.status]}>
-                            {ApartmentStatusLabels[apt.status]}
-                          </Badge>
+                          {/* Ownership completion badge */}
+                          {(() => {
+                            const pct = getAptPct(apt.id);
+                            const b   = ownershipBadge(pct);
+                            return (
+                              <div className={`flex flex-col items-end gap-0.5 px-3 py-1.5 rounded-xl border text-right ${b.bg}`}>
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`w-2 h-2 rounded-full shrink-0 ${b.dot}`} />
+                                  <span className={`text-xs font-bold ${b.color}`}>{b.label}</span>
+                                </div>
+                                <span className={`text-[10px] ${b.color} opacity-75`}>{b.sub}</span>
+                              </div>
+                            );
+                          })()}
                           <button
                             onClick={(e) => { e.stopPropagation(); deleteApartment(apt.id); }}
                             className="no-print w-7 h-7 rounded-lg hover:bg-red-50 flex items-center justify-center text-red-400 transition-colors"

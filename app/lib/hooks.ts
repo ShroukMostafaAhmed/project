@@ -223,3 +223,45 @@ export function useDashboardData() {
 
   return { shareholders, units, apartments, ownerships, loading, error, reload: load };
 }
+
+// ─── ShareholderUnits ─────────────────────────────────────────────────────────
+
+export function useShareholderUnits() {
+  const { data, loading, error, reload } = useFetch(() => api.shareholderUnits.list());
+  const shareholderUnits = data ?? [];
+
+  async function create(dto: import("./types").CreateShareholderUnitDto) {
+    const result = await api.shareholderUnits.create(dto);
+    await reload();
+    return result;
+  }
+  async function update(id: number, dto: import("./types").UpdateShareholderUnitDto) {
+    const result = await api.shareholderUnits.update(id, dto);
+    await reload();
+    return result;
+  }
+  async function remove(id: number) {
+    await api.shareholderUnits.delete(id);
+    await reload();
+  }
+
+  return { shareholderUnits, loading, error, reload, create, update, remove };
+}
+
+export function useShareholderUnitsByUnit(unitId: number | null) {
+  const fetcher = useCallback(
+    () => unitId !== null ? api.shareholderUnits.byUnit(unitId) : Promise.resolve([]),
+    [unitId]
+  );
+  const { data, loading, error, reload } = useFetch(fetcher, [unitId]);
+  return { shareholderUnits: data ?? [], loading, error, reload };
+}
+
+export function useShareholderUnitsByShareholder(shareholderId: number | null) {
+  const fetcher = useCallback(
+    () => shareholderId !== null ? api.shareholderUnits.byShareholder(shareholderId) : Promise.resolve([]),
+    [shareholderId]
+  );
+  const { data, loading, error, reload } = useFetch(fetcher, [shareholderId]);
+  return { shareholderUnits: data ?? [], loading, error, reload };
+}

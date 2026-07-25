@@ -3,6 +3,7 @@ import {
   UnitDto, CreateUnitDto, UpdateUnitDto,
   ApartmentDto, CreateApartmentDto, UpdateApartmentDto,
   ApartmentOwnershipDto, CreateApartmentOwnershipDto, UpdateApartmentOwnershipDto,
+  ShareholderUnitDto, CreateShareholderUnitDto, UpdateShareholderUnitDto,
   LoginDto, LoginResponseDto,
 } from "./types";
 import {
@@ -62,6 +63,7 @@ let _shareholders = [...MOCK_SHAREHOLDERS];
 let _units        = [...MOCK_UNITS];
 let _apartments   = [...MOCK_APARTMENTS];
 let _ownerships   = [...MOCK_OWNERSHIPS];
+let _shareholderUnits: ShareholderUnitDto[] = [];
 let _nextId       = 100;
 
 export const api = {
@@ -268,6 +270,60 @@ export const api = {
     delete: (id: number) => withFallback(
       () => request<void>(`/ApartmentOwnerships/${id}`, { method: "DELETE" }),
       () => { _ownerships = _ownerships.filter((o) => o.id !== id); }
+    ),
+  },
+
+  // ─── ShareholderUnits ──────────────────────────────────────────────────────
+  shareholderUnits: {
+    list: () => withFallback(
+      () => request<ShareholderUnitDto[]>("/ShareholderUnits"),
+      () => [..._shareholderUnits]
+    ),
+    get: (id: number) => withFallback(
+      () => request<ShareholderUnitDto>(`/ShareholderUnits/${id}`),
+      () => {
+        const s = _shareholderUnits.find(x => x.id === id);
+        if (!s) throw new Error("Not found");
+        return s;
+      }
+    ),
+    byUnit: (unitId: number) => withFallback(
+      () => request<ShareholderUnitDto[]>(`/ShareholderUnits/by-unit/${unitId}`),
+      () => _shareholderUnits.filter(s => s.unitId === unitId)
+    ),
+    byShareholder: (shareholderId: number) => withFallback(
+      () => request<ShareholderUnitDto[]>(`/ShareholderUnits/by-shareholder/${shareholderId}`),
+      () => _shareholderUnits.filter(s => s.shareholderId === shareholderId)
+    ),
+    create: (data: CreateShareholderUnitDto) => withFallback(
+      () => request<ShareholderUnitDto>("/ShareholderUnits", { method: "POST", body: JSON.stringify(data) }),
+      () => {
+        const sh   = _shareholders.find(s => s.id === data.shareholderId);
+        const unit = _units.find(u => u.id === data.unitId);
+        const entry: ShareholderUnitDto = {
+          id: _nextId++,
+          shareholderId: data.shareholderId,
+          unitId: data.unitId,
+          shareholderName: sh?.fullName ?? null,
+          unitName: unit?.name ?? null,
+          sharesCount: data.sharesCount,
+        };
+        _shareholderUnits = [..._shareholderUnits, entry];
+        return entry;
+      }
+    ),
+    update: (id: number, data: UpdateShareholderUnitDto) => withFallback(
+      () => request<ShareholderUnitDto>(`/ShareholderUnits/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+      () => {
+        _shareholderUnits = _shareholderUnits.map(s =>
+          s.id === id ? { ...s, sharesCount: data.sharesCount } : s
+        );
+        return _shareholderUnits.find(s => s.id === id)!;
+      }
+    ),
+    delete: (id: number) => withFallback(
+      () => request<void>(`/ShareholderUnits/${id}`, { method: "DELETE" }),
+      () => { _shareholderUnits = _shareholderUnits.filter(s => s.id !== id); }
     ),
   },
 };

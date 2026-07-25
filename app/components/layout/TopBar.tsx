@@ -7,16 +7,17 @@ import { getAuthUser, clearAuthUser } from "@/app/lib/auth";
 import { useTheme } from "@/app/components/providers/ThemeProvider";
 
 const LABELS: Record<string, string> = {
-  dashboard:   "لوحة التحكم",
-  home:        "الرئيسية",
-  users:       "المساهمين",
-  projects:    "المشاريع",
-  ownerships:  "الملكيات",
-  finance:     "الماليه",
-  expenses:    "المصاريف",
-  analysis:    "التحليلات",
-  reports:     "التقارير",
-  edit:        "تعديل",
+  dashboard:          "لوحة التحكم",
+  home:               "الرئيسية",
+  users:              "المساهمين",
+  projects:           "المشاريع",
+  "shareholder-units":"مساهمو الوحدات",
+  ownerships:         "الملكيات",
+  finance:            "الماليه",
+  expenses:           "المصاريف",
+  analysis:           "التحليلات",
+  reports:            "التقارير",
+  edit:               "تعديل",
 };
 
 export default function TopBar({ onMenuClick }: { onMenuClick: () => void }) {

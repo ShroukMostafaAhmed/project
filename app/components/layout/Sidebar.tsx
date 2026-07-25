@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Users, Building2, Wallet,
-  Receipt, BarChart3, FileText, LogOut, Home, X, Key,
+  Receipt, BarChart3, FileText, LogOut, Home, X, Key, KeyRound,
 } from "lucide-react";
 import { cn } from "@/app/lib/utils";
 import { clearAuthUser, getAuthUser } from "@/app/lib/auth";
@@ -12,14 +12,15 @@ import { clearAuthUser, getAuthUser } from "@/app/lib/auth";
 interface NavItem { href: string; label: string; icon: React.ElementType; }
 
 const adminNav: NavItem[] = [
-  { href: "/admin/dashboard",  label: "الرئيسية",   icon: LayoutDashboard },
-  { href: "/admin/users",      label: "المساهمين",  icon: Users           },
-  { href: "/admin/projects",   label: "المشاريع",   icon: Building2       },
-  { href: "/admin/ownerships", label: "الملكيات",   icon: Key             },
-  { href: "/admin/finance",    label: "الماليه",    icon: Wallet          },
-  { href: "/admin/expenses",   label: "المصاريف",   icon: Receipt         },
-  { href: "/admin/analysis",   label: "التحليلات",  icon: BarChart3       },
-  { href: "/admin/reports",    label: "التقارير",   icon: FileText        },
+  { href: "/admin/dashboard",        label: "الرئيسية",       icon: LayoutDashboard },
+  { href: "/admin/users",            label: "المساهمين",      icon: Users           },
+  { href: "/admin/projects",         label: "المشاريع",       icon: Building2       },
+  { href: "/admin/shareholder-units",label: "مساهمو الوحدات", icon: Key             },
+  { href: "/admin/ownerships",       label: "الملكيات",       icon: KeyRound        },
+  { href: "/admin/finance",          label: "الماليه",        icon: Wallet          },
+  { href: "/admin/expenses",         label: "المصاريف",       icon: Receipt         },
+  { href: "/admin/analysis",         label: "التحليلات",      icon: BarChart3       },
+  { href: "/admin/reports",          label: "التقارير",       icon: FileText        },
 ];
 
 const shareholderNav: NavItem[] = [
