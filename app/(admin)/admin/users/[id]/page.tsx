@@ -160,7 +160,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
           <div className="grid grid-cols-3 gap-3">
             {[
               { label:"الوحدات المملوكة", value:units.length,      clr:"#6366f1", bg:"rgba(99,102,241,.1)",  icon:Building2 },
-              { label:"إجمالي الملكية",  value:`${totalPct.toFixed(1)}%`, clr:"#7c3aed", bg:"rgba(124,58,237,.1)", icon:Percent },
+              { label:"إجمالي الملكيات في الشقق",  value:`${totalPct.toFixed(1)}%`, clr:"#7c3aed", bg:"rgba(124,58,237,.1)", icon:Percent },
               { label:"إجمالي الأسهم",   value:totalShares,       clr:"#0ea5e9", bg:"rgba(14,165,233,.1)",  icon:Hash },
             ].map(({ label, value, clr, bg, icon:Icon }) => (
               <div key={label} className="rounded-2xl p-4 flex items-center gap-3" style={cStyle()}>
