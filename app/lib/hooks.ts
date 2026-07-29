@@ -259,9 +259,11 @@ export function useShareholderUnitsByUnit(unitId: number | null) {
 
 export function useShareholderUnitsByShareholder(shareholderId: number | null) {
   const fetcher = useCallback(
-    () => shareholderId !== null ? api.shareholderUnits.byShareholder(shareholderId) : Promise.resolve([]),
+    () => shareholderId !== null
+      ? api.shareholderUnits.byShareholder(shareholderId)
+      : Promise.resolve(null),
     [shareholderId]
   );
   const { data, loading, error, reload } = useFetch(fetcher, [shareholderId]);
-  return { shareholderUnits: data ?? [], loading, error, reload };
+  return { shareholderFull: data ?? null, loading, error, reload };
 }
