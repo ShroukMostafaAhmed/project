@@ -126,7 +126,7 @@ export default function SplashScreen({ onDone }: SplashScreenProps) {
               WebkitTextFillColor: "transparent",
             }}
           >
-            شركة المساهمين
+             Top First House
           </h1>
           <p className="text-indigo-300/60 text-sm font-medium tracking-widest uppercase">
             Real Estate Management System

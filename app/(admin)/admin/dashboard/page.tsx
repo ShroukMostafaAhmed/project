@@ -139,7 +139,7 @@ export default function AdminDashboardPage() {
             {[
               { label: "مساهمين نشطين", value: activeCount, icon: Users },
               { label: "وحدات", value: units.length, icon: Building2 },
-              { label: "نسبة الإشغال", value: `${occupancyPct}%`, icon: Percent },
+              { label: "نسبة التشغيل", value: `${occupancyPct}%`, icon: Percent },
             ].map(({ label, value, icon: Icon }) => (
               <div key={label} className="bg-white/15 backdrop-blur-sm rounded-2xl px-4 py-3 min-w-24 text-center border border-white/20">
                 <Icon className="w-4 h-4 text-indigo-200 mx-auto mb-1" />
@@ -185,7 +185,7 @@ export default function AdminDashboardPage() {
             badge: null,
           },
           {
-            title: "نسبة الإشغال",
+            title: "نسبة التشغيل",
             value: `${occupancyPct}%`,
             sub: `${apartments.length - availableApts} من ${apartments.length} شقة`,
             icon: Activity,

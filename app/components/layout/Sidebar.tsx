@@ -114,8 +114,7 @@ function Inner({ nav, pathname, user, isAdmin, onLogout, showClose, onClose }: I
           </div>
           <div>
             <p className="text-[13px] font-bold leading-tight" style={{ color: "var(--foreground)" }}>
-              شركة المساهمين
-            </p>
+            Top First House            </p>
             <p className="text-[10px] leading-tight mt-0.5" style={{ color: "var(--muted)" }}>
               {isAdmin ? "لوحة الإدارة" : "لوحة المساهم"}
             </p>

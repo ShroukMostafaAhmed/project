@@ -4,6 +4,7 @@ import {
   ApartmentDto, CreateApartmentDto, UpdateApartmentDto,
   ApartmentOwnershipDto, CreateApartmentOwnershipDto, UpdateApartmentOwnershipDto,
   ShareholderUnitDto, CreateShareholderUnitDto, UpdateShareholderUnitDto,
+  ShareholderFullDto,
   LoginDto, LoginResponseDto,
 } from "./types";
 import {
@@ -43,8 +44,15 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const text = await res.text().catch(() => "");
     throw new Error(`${res.status}: ${text || path}`);
   }
+  // Handle empty responses (204 No Content or empty body)
   if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
+  const text = await res.text();
+  if (!text || text.trim() === "") return undefined as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return undefined as T;
+  }
 }
 
 // ─── Fallback wrapper ─────────────────────────────────────────────────────────
@@ -301,8 +309,18 @@ export const api = {
       () => _shareholderUnits.filter(s => s.unitId === unitId)
     ),
     byShareholder: (shareholderId: number) => withFallback(
-      () => request<ShareholderUnitDto[]>(`/ShareholderUnits/by-shareholder/${shareholderId}`),
-      () => _shareholderUnits.filter(s => s.shareholderId === shareholderId)
+      () => request<ShareholderFullDto>(`/ShareholderUnits/by-shareholder/${shareholderId}`),
+      () => ({
+        shareholderId,
+        shareholderName: null,
+        nationalId: null,
+        units: _shareholderUnits
+          .filter(s => s.shareholderId === shareholderId)
+          .map(s => ({
+            unitId: s.unitId, unitName: s.unitName, unitCode: null,
+            sharesCount: s.sharesCount, sharePercentage: 0, apartments: [],
+          })),
+      })
     ),
     create: (data: CreateShareholderUnitDto) => withFallback(
       () => request<ShareholderUnitDto>("/ShareholderUnits", { method: "POST", body: JSON.stringify(data) }),

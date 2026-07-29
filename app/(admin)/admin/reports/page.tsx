@@ -144,7 +144,7 @@ export default function AdminReportsPage() {
         .footer { margin-top: 24px; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 8px; }
       </style></head><body>
       ${el.innerHTML}
-      <div class="footer">شركة المساهمين — تاريخ الطباعة: ${new Date().toLocaleDateString("ar-EG")}</div>
+      <div class="footer"> Top First House — تاريخ الطباعة: ${new Date().toLocaleDateString("ar-EG")}</div>
       </body></html>
     `);
     w.document.close();
@@ -448,7 +448,7 @@ export default function AdminReportsPage() {
 
         {/* Footer */}
         <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 text-xs text-slate-400 flex justify-between">
-          <span>شركة المساهمين — نظام إدارة المشاريع العقارية</span>
+          <span> Top First House — نظام إدارة المشاريع العقارية</span>
           <span>
             {counts[activeReport]} نتيجة من {reportTabs.find(r=>r.key===activeReport)?.total} إجمالي
           </span>

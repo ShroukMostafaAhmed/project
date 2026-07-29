@@ -194,7 +194,7 @@ export default function ProjectDetailPage({
 
           {/* Print-only header */}
           <div className="hidden print:block mb-6 pb-4 border-b-2 border-slate-200">
-            <p className="text-xs text-slate-400 mb-1">تقرير مشروع — شركة المساهمين</p>
+            <p className="text-xs text-slate-400 mb-1">تقرير مشروع — Top First House </p>
             <h1 className="text-2xl font-bold text-slate-800">{unit.name}</h1>
             <p className="text-sm text-slate-500 mt-0.5">
               {unit.code} {unit.address ? `· ${unit.address}` : ""}
@@ -408,7 +408,7 @@ export default function ProjectDetailPage({
 
           {/* Print footer */}
           <div className="hidden print:block mt-8 pt-4 border-t border-slate-200 text-xs text-slate-400 flex justify-between">
-            <span>شركة المساهمين — نظام إدارة المشاريع</span>
+            <span> Top First House — نظام إدارة المشاريع</span>
             <span>تاريخ الطباعة: {new Date().toLocaleDateString("ar-EG")}</span>
           </div>
         </div>

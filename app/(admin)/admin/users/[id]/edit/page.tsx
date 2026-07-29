@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, Save } from "lucide-react";
+import { ArrowRight, Save, Eye, EyeOff } from "lucide-react";
 import DashboardShell from "@/app/components/layout/DashboardShell";
 import { api } from "@/app/lib/api";
 import { UpdateShareholderDto } from "@/app/lib/types";
@@ -17,10 +17,12 @@ export default function UserEditPage({ params }: { params: Promise<{ id: string 
     email: "",
     address: "",
     isActive: true,
+    password: "",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     params.then(({ id: rawId }: { id: string }) => {
@@ -33,6 +35,7 @@ export default function UserEditPage({ params }: { params: Promise<{ id: string 
           email: s.email,
           address: s.address,
           isActive: s.isActive,
+          password: "",
         });
       }).finally(() => setLoading(false));
     });
@@ -50,6 +53,8 @@ export default function UserEditPage({ params }: { params: Promise<{ id: string 
         email: form.email,
         address: form.address,
         isActive: form.isActive,
+        // Only send password if the user actually typed a new one
+        ...(form.password ? { password: form.password } : {}),
       });
       router.push(`/admin/users/${id}`);
     } catch (err) {
@@ -105,6 +110,32 @@ export default function UserEditPage({ params }: { params: Promise<{ id: string 
               />
             </div>
           ))}
+
+          {/* Password field */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              كلمة المرور
+              <span className="text-xs text-slate-400 mr-1">(اتركها فارغة إذا كنت لا تريد تغييرها)</span>
+            </label>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={form.password ?? ""}
+                onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
+                className="w-full px-3 py-2 pl-10 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-400"
+                autoComplete="new-password"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
 
           <div className="flex items-center gap-3">
             <label className="text-sm font-medium text-slate-700">الحالة</label>

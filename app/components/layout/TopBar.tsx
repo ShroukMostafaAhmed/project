@@ -174,30 +174,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
                   </div>
                 </div>
 
-                {/* Theme toggle row */}
-                <button
-                  onClick={() => { toggle(); setMenuOpen(false); }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium transition-colors"
-                  style={{ color: "var(--foreground)" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(99,102,241,0.08)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-                >
-                  {isDark
-                    ? <Sun  className="w-4 h-4 text-amber-400" />
-                    : <Moon className="w-4 h-4 text-indigo-500" />
-                  }
-                  {isDark ? "الوضع الفاتح" : "الوضع الداكن"}
-
-                  {/* Toggle pill */}
-                  <div className="mr-auto relative w-9 h-5 rounded-full shrink-0 transition-colors"
-                    style={{ background: isDark ? "#6366f1" : "rgba(128,128,128,0.2)" }}>
-                    <div
-                      className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all duration-200"
-                      style={{ right: isDark ? "0.125rem" : "1.125rem" }}
-                    />
-                  </div>
-                </button>
-
+               
                 {/* Logout */}
                 <button
                   onClick={() => { setMenuOpen(false); logout(); }}

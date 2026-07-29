@@ -62,7 +62,7 @@ export default function LoadingScreen({
           <h1 className="text-3xl font-bold tracking-tight"
             style={{ background: "linear-gradient(135deg, #fff 30%, #a5b4fc 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
           >
-            شركة المساهمين
+             Top First House
           </h1>
           <p className="text-indigo-300/70 text-sm font-medium tracking-wide">
             نظام إدارة المشاريع العقارية

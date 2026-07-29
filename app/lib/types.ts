@@ -64,6 +64,8 @@ export interface ShareholderDto {
   isActive: boolean;
   identityUserId?: string | null;
   generatedPassword?: string | null;
+  password?:string | null;
+  
 }
 
 export interface CreateShareholderDto {
@@ -72,6 +74,7 @@ export interface CreateShareholderDto {
   phone?: string | null;
   email?: string | null;
   address?: string | null;
+  password?: string | null;
 }
 
 export interface UpdateShareholderDto {
@@ -80,17 +83,29 @@ export interface UpdateShareholderDto {
   email?: string | null;
   address?: string | null;
   isActive?: boolean;
+  password?: string | null;
 }
 
 export interface UnitDto {
-  id: number;
-  code: string | null;
-  name: string | null;
-  description: string | null;
-  totalApartments: number;
-  numFloors: number;
-  numApartmentsFloor: number | null;
-  address: string | null;
+  id:                    number;
+  code:                  string | null;
+  name:                  string | null;
+  description:           string | null;
+  totalApartments:       number;
+  numFloors:             number;
+  numApartmentsFloor:    number | null;
+  address:               string | null;
+  // Financial & share fields (returned by API)
+  numOfShareholders?:    number | null;
+  numOfShares?:          number | null;
+  stockRatio?:           number | null;
+  landSharePrice?:       number | null;
+  purchasePrice?:        number | null;
+  commission?:           number | null;
+  legalContractCosts?:   number | null;
+  realEstateRegExpenses?:number | null;
+  demolitionPermit?:     number | null;
+  buildingPermit?:       number | null;
 }
 
 export interface CreateUnitDto {
@@ -103,7 +118,7 @@ export interface CreateUnitDto {
   address?: string | null;
 }
 
-// ─── ShareholderUnit ─────────────────────────────────────────────────────────
+// ─── ShareholderUnit (list / by-unit) ────────────────────────────────────────
 
 export interface ShareholderUnitDto {
   id:              number;
@@ -112,6 +127,31 @@ export interface ShareholderUnitDto {
   unitId:          number;
   unitName:        string | null;
   sharesCount:     number;
+}
+
+// ─── ShareholderUnit full response (by-shareholder) ─────────────────────────
+
+export interface ShareholderUnitApartment {
+  apartmentId:         number;
+  apartmentNumber:     string | null;
+  floor:               string | null;
+  ownershipPercentage: number;
+}
+
+export interface ShareholderUnitEntry {
+  unitId:          number;
+  unitName:        string | null;
+  unitCode:        string | null;
+  sharesCount:     number;
+  sharePercentage: number;
+  apartments:      ShareholderUnitApartment[];
+}
+
+export interface ShareholderFullDto {
+  shareholderId:   number;
+  shareholderName: string | null;
+  nationalId:      string | null;
+  units:           ShareholderUnitEntry[];
 }
 
 export interface CreateShareholderUnitDto {

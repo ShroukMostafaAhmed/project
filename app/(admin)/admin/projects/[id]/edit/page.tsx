@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Save, Building2, DollarSign } from "lucide-react";
@@ -40,6 +40,17 @@ function Field({ label, children, full }: { label: string; children: React.React
   );
 }
 
+// Financial fields that feed into the land-share-price calculation.
+// (landSharePrice itself is EXCLUDED because it's the result, not an input.)
+const LAND_SHARE_SOURCE_KEYS = [
+  "purchasePrice",
+  "commission",
+  "legalContractCosts",
+  "realEstateRegExpenses",
+  "demolitionPermit",
+  "buildingPermit",
+] as const;
+
 export default function ProjectEditPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const [unitId, setUnitId] = useState<number | null>(null);
@@ -60,6 +71,14 @@ export default function ProjectEditPage({ params }: { params: Promise<{ id: stri
           numFloors:          u.numFloors,
           numApartmentsFloor: u.numApartmentsFloor,
           address:            u.address,
+          numOfShareholders:  u.numOfShareholders,
+          numOfShares:        u.numOfShares,
+          purchasePrice:         u.purchasePrice,
+          commission:            u.commission,
+          legalContractCosts:    u.legalContractCosts,
+          realEstateRegExpenses: u.realEstateRegExpenses,
+          demolitionPermit:      u.demolitionPermit,
+          buildingPermit:        u.buildingPermit,
         });
       }).finally(() => setLoading(false));
     });
@@ -75,12 +94,38 @@ export default function ProjectEditPage({ params }: { params: Promise<{ id: stri
     setForm(p => ({ ...p, [field]: val ? parseInt(val) : null }));
   }
 
+  // ── Auto-calculated values ──────────────────────────────────────────────
+  // نسبة السهم (%) = 100 / عدد الأسهم الإجمالي
+  const stockRatio = useMemo(() => {
+    const shares = form.numOfShares ?? 0;
+    if (!shares || shares <= 0) return 0;
+    return 100 / shares;
+  }, [form.numOfShares]);
+
+  // سعر سهم الأرض = مجموع البيانات المالية / عدد الأسهم الإجمالي
+  const landSharePrice = useMemo(() => {
+    const shares = form.numOfShares ?? 0;
+    if (!shares || shares <= 0) return 0;
+    const total = LAND_SHARE_SOURCE_KEYS.reduce((sum, key) => {
+      const v = (form as Record<string, unknown>)[key] as number | null | undefined;
+      return sum + (v ?? 0);
+    }, 0);
+    return total / shares;
+  }, [form]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!unitId) return;
     setSaving(true); setError("");
     try {
-      await api.units.update(unitId, form);
+      // Include the auto-calculated values in the payload sent to the API,
+      // since they aren't editable inputs and never live in form state.
+      const payload: UpdateUnitDto = {
+        ...form,
+        stockRatio,
+        landSharePrice,
+      };
+      await api.units.update(unitId, payload);
       router.push(`/admin/projects/${unitId}`);
     } catch (err) {
       setError((err as Error).message);
@@ -102,6 +147,8 @@ export default function ProjectEditPage({ params }: { params: Promise<{ id: stri
   }
 
   const inputCls = "w-full px-3.5 py-2.5 rounded-xl text-sm border focus:outline-none transition-all";
+  const readOnlyCls = inputCls + " opacity-70 cursor-not-allowed";
+  const readOnlyStyle: React.CSSProperties = { ...iStyle(), background: "var(--card-border)" };
 
   return (
     <DashboardShell title="تعديل المشروع">
@@ -161,14 +208,15 @@ export default function ProjectEditPage({ params }: { params: Promise<{ id: stri
               className={inputCls} style={iStyle()} />
           </Field>
           <Field label="نسبة السهم (%)">
-            <input type="number" min={0} step="0.01" value={form.stockRatio ?? ""}
-              onChange={e => setNum("stockRatio", e.target.value)}
-              className={inputCls} style={iStyle()} />
+            {/* محسوبة تلقائيًا: 100 / عدد الأسهم الإجمالي — غير قابلة للتعديل يدويًا */}
+            <input type="text" readOnly disabled
+              value={stockRatio ? `${stockRatio.toFixed(2)}%` : "—"}
+              className={readOnlyCls} style={readOnlyStyle} />
           </Field>
         </Section>
 
         {/* ── Financial info ── */}
-        <Section title="البيانات المالية" icon={DollarSign}>
+        <Section title="بيانات الارض" icon={DollarSign}>
           {[
             { key:"purchasePrice",         label:"سعر الشراء" },
             { key:"commission",            label:"العمولة" },
@@ -176,7 +224,6 @@ export default function ProjectEditPage({ params }: { params: Promise<{ id: stri
             { key:"realEstateRegExpenses", label:"مصاريف التسجيل العقاري" },
             { key:"demolitionPermit",      label:"تصريح الهدم" },
             { key:"buildingPermit",        label:"تصريح البناء" },
-            { key:"landSharePrice",        label:"سعر سهم الأرض" },
           ].map(({ key, label }) => (
             <Field key={key} label={label}>
               <input type="number" min={0} step="0.01"
@@ -187,6 +234,13 @@ export default function ProjectEditPage({ params }: { params: Promise<{ id: stri
               />
             </Field>
           ))}
+
+          <Field label="سعر سهم الأرض">
+            {/* محسوبة تلقائيًا: مجموع البيانات المالية / عدد الأسهم الإجمالي — غير قابلة للتعديل يدويًا */}
+            <input type="text" readOnly disabled
+              value={landSharePrice ? landSharePrice.toFixed(2) : "0.00"}
+              className={readOnlyCls} style={readOnlyStyle} />
+          </Field>
         </Section>
 
         {/* Error */}

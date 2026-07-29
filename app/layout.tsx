@@ -11,7 +11,7 @@ const geist = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "شركة المساهمين — نظام إدارة المشاريع العقارية",
+  title: "Top First House  — نظام إدارة المشاريع العقارية",
   description: "نظام متكامل لإدارة مشاريع الشركة والمساهمين",
 };
 
@@ -22,7 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ar" dir="rtl" className={`${geist.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col font-sans">
+      <body suppressHydrationWarning className="min-h-full flex flex-col font-sans">
         <ThemeProvider>
           <NavigationProvider>
             <AuthGuard>

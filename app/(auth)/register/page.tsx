@@ -121,7 +121,7 @@ export default function RegisterPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 shadow-2xl shadow-indigo-500/40 mb-4">
             <Building2 className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white">شركة المساهمين</h1>
+          <h1 className="text-2xl font-bold text-white"> Top First House</h1>
           <p className="text-indigo-300 text-sm mt-1">نظام إدارة المشاريع العقارية</p>
         </div>
 

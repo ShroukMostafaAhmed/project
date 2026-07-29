@@ -288,7 +288,7 @@ function UnitCard({ unit, palette, aptCount, sold, available, onDelete }: CardPr
         {aptCount > 0 && (
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[11px] text-slate-500">نسبة الإشغال</span>
+              <span className="text-[11px] text-slate-500">نسبة التشغيل</span>
               <span className="text-[11px] font-bold text-slate-700">{occupancy}%</span>
             </div>
             <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">

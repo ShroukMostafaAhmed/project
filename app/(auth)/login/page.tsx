@@ -98,7 +98,7 @@ export default function LoginPage() {
             <Building2 className="w-8 h-8 text-white" strokeWidth={1.8} />
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">
-            شركة المساهمين
+           Top First House
           </h1>
           <p className="text-indigo-300/60 text-sm mt-1">
             نظام إدارة المشاريع العقارية

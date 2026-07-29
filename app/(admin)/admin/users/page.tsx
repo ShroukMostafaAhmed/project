@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Search, Edit2, Trash2, Eye, RefreshCw, AlertCircle } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, Eye, RefreshCw, AlertCircle, Key, EyeOff } from "lucide-react";
 import Link from "next/link";
 import DashboardShell from "@/app/components/layout/DashboardShell";
 import PageHeader from "@/app/components/ui/PageHeader";
@@ -18,8 +18,9 @@ export default function AdminUsersPage() {
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "inactive">("all");
   const [showCreate, setShowCreate] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState<CreateShareholderDto>({
-    fullName: "", nationalId: "", phone: "", email: "", address: "",
+    fullName: "", nationalId: "", phone: "", email: "", address: "", password: "",
   });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
@@ -45,7 +46,7 @@ export default function AdminUsersPage() {
     try {
       await create(form);
       setShowCreate(false);
-      setForm({ fullName: "", nationalId: "", phone: "", email: "", address: "" });
+      setForm({ fullName: "", nationalId: "", phone: "", email: "", address: "", password: "" });
     } catch (err) {
       setFormError((err as Error).message);
     } finally {
@@ -59,7 +60,9 @@ export default function AdminUsersPage() {
       await remove(deleteId);
       setDeleteId(null);
     } catch (err) {
-      alert((err as Error).message);
+      setDeleteId(null);
+      const msg = (err as Error).message;
+      setFormError(msg.includes("404") ? "المساهم غير موجود في قاعدة البيانات" : msg);
     }
   }
 
@@ -123,12 +126,12 @@ export default function AdminUsersPage() {
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <table className="min-w-full">
             <thead className="bg-slate-50">
-              <tr>{["الاسم","الرقم القومي","الهاتف","البريد","الحالة","التسجيل",""].map(h=>(
+              <tr>{["الاسم","الرقم القومي","الهاتف","البريد","الحالة","كلمة المرور","التسجيل",""].map(h=>(
                 <th key={h} className="px-4 py-3 text-right text-xs font-semibold text-slate-500">{h}</th>
               ))}</tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {[...Array(6)].map((_, i) => <TableRowSkeleton key={i} cols={7} />)}
+              {[...Array(6)].map((_, i) => <TableRowSkeleton key={i} cols={8} />)}
             </tbody>
           </table>
         </div>
@@ -137,7 +140,7 @@ export default function AdminUsersPage() {
           <table className="min-w-full divide-y divide-slate-100 text-sm">
             <thead className="bg-slate-50">
               <tr>
-                {["الاسم", "الرقم القومي", "الهاتف", "البريد", "الحالة", "تاريخ التسجيل", "إجراءات"].map((h) => (
+                {["الاسم", "الرقم القومي", "الهاتف", "البريد", "الحالة", "كلمة المرور", "تاريخ التسجيل", "إجراءات"].map((h) => (
                   <th key={h} className="px-4 py-3 text-right font-semibold text-slate-600 whitespace-nowrap">
                     {h}
                   </th>
@@ -147,7 +150,7 @@ export default function AdminUsersPage() {
             <tbody className="divide-y divide-slate-50">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-12 text-slate-400">
+                  <td colSpan={8} className="text-center py-12 text-slate-400">
                     لا توجد بيانات
                   </td>
                 </tr>
@@ -164,6 +167,18 @@ export default function AdminUsersPage() {
                       <Badge variant={s.isActive ? "success" : "danger"}>
                         {s.isActive ? "نشط" : "غير نشط"}
                       </Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      {s.generatedPassword ? (
+                        <div className="flex items-center gap-1.5">
+                          <Key className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <code className="text-xs font-mono bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-lg">
+                            {s.generatedPassword}
+                          </code>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-300">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-slate-500">{formatDate(s.createdAt)}</td>
                     <td className="px-4 py-3">
@@ -223,6 +238,31 @@ export default function AdminUsersPage() {
               />
             </div>
           ))}
+
+          {/* Password field */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              كلمة المرور
+            </label>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={form.password ?? ""}
+                onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
+                className="w-full px-3 py-2 pl-10 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-400"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
           {formError && <p className="text-red-500 text-xs">{formError}</p>}
           <div className="flex gap-2 pt-2">
             <button
