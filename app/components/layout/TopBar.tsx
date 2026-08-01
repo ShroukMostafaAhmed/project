@@ -12,7 +12,7 @@ const LABELS: Record<string, string> = {
   users:              "المساهمين",
   projects:           "المشاريع",
   "shareholder-units":"مساهمو الوحدات",
-  ownerships:         "الملكيات",
+  contracts:          "العقود",
   finance:            "الماليه",
   expenses:           "المصاريف",
   analysis:           "التحليلات",

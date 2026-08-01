@@ -5,6 +5,7 @@ import {
   ApartmentOwnershipDto, CreateApartmentOwnershipDto, UpdateApartmentOwnershipDto,
   ShareholderUnitDto, CreateShareholderUnitDto, UpdateShareholderUnitDto,
   ShareholderFullDto,
+  ShareholderContractDto, UpdateContractDto,
   LoginDto, LoginResponseDto,
 } from "./types";
 import {
@@ -352,5 +353,56 @@ export const api = {
       () => request<void>(`/ShareholderUnits/${id}`, { method: "DELETE" }),
       () => { _shareholderUnits = _shareholderUnits.filter(s => s.id !== id); }
     ),
+  },
+
+  // ─── ShareholderContracts ──────────────────────────────────────────────────
+  contracts: {
+    getAll: () =>
+      request<ShareholderContractDto[]>("/ShareholderContracts/get-all-contracts"),
+
+    getById: (id: number) =>
+      request<ShareholderContractDto>(`/ShareholderContracts/get-contract/${id}`),
+
+    byShareholder: (shareholderId: number) =>
+      request<ShareholderContractDto[]>(
+        `/ShareholderContracts/by-shareholder-contracts/${shareholderId}`
+      ),
+
+    upload: (shareholderId: number, file: File, description?: string, contractType?: string) => {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("shareholderId", String(shareholderId));
+      if (description)  form.append("description", description);
+      if (contractType) form.append("contractType", contractType);
+      return fetch(`${BASE_URL}/ShareholderContracts/upload-contract`, {
+        method: "POST",
+        headers: { ...getAuthHeaders() },
+        body: form,
+      }).then(async (res) => {
+        if (!res.ok) {
+          const txt = await res.text().catch(() => "");
+          throw new Error(`${res.status}: ${txt}`);
+        }
+        const txt = await res.text();
+        return txt ? JSON.parse(txt) as ShareholderContractDto : undefined;
+      });
+    },
+
+    download: (id: number) =>
+      fetch(`${BASE_URL}/ShareholderContracts/download/${id}`, {
+        headers: getAuthHeaders(),
+      }).then(async (res) => {
+        if (!res.ok) throw new Error(`${res.status}`);
+        return res.blob();
+      }),
+
+    update: (id: number, data: UpdateContractDto) =>
+      request<ShareholderContractDto>(`/ShareholderContracts/update/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }),
+
+    delete: (id: number) =>
+      request<void>(`/ShareholderContracts/delete/${id}`, { method: "DELETE" }),
   },
 };

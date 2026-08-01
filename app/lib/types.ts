@@ -228,7 +228,23 @@ export interface UpdateApartmentOwnershipDto {
   ownershipPercentage?: number;
 }
 
-// ─── Auth (local, no backend auth yet) ──────────────────────────────────────
+// ─── Shareholder Contracts ────────────────────────────────────────────────────
+
+export interface ShareholderContractDto {
+  id:            number;
+  shareholderId: number;
+  shareholderName?: string | null;
+  fileName:      string | null;
+  fileUrl?:      string | null;
+  uploadedAt?:   string | null;
+  description?:  string | null;
+  contractType?: string | null;
+}
+
+export interface UpdateContractDto {
+  description?:  string | null;
+  contractType?: string | null;
+}
 
 export type UserRole = "admin" | "shareholder";
 

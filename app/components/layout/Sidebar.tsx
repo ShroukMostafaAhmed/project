@@ -21,6 +21,8 @@ const adminNav: NavItem[] = [
   { href: "/admin/expenses",         label: "المصاريف",       icon: Receipt         },
   { href: "/admin/analysis",         label: "التحليلات",      icon: BarChart3       },
   { href: "/admin/reports",          label: "التقارير",       icon: FileText        },
+  { href: "/admin/contracts",        label: "العقود",         icon: FileText        },
+
 ];
 
 const shareholderNav: NavItem[] = [
