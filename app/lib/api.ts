@@ -6,6 +6,10 @@ import {
   ShareholderUnitDto, CreateShareholderUnitDto, UpdateShareholderUnitDto,
   ShareholderFullDto,
   ShareholderContractDto, UpdateContractDto,
+  FinancialCategoryDto, CreateFinancialCategoryDto, UpdateFinancialCategoryDto,
+  FinancialTransactionDto, CreateFinancialTransactionDto, UpdateFinancialTransactionDto,
+  FinancialSummaryDto, TransactionType,
+  FinancialAuditDto, CreateFinancialAuditDto,
   LoginDto, LoginResponseDto,
 } from "./types";
 import {
@@ -76,13 +80,50 @@ async function withFallback<T>(realFn: () => Promise<T>, mockFn: () => T): Promi
   }
 }
 
-// ─── In-memory mock store (so create/update/delete work during dev) ───────────
+// ─── Always-fallback wrapper (for endpoints not yet on server) ────────────────
+async function withAlwaysFallback<T>(realFn: () => Promise<T>, mockFn: () => T): Promise<T> {
+  try {
+    return await realFn();
+  } catch (err) {
+    console.warn("[API] Using mock data:", (err as Error).message);
+    await delay(150);
+    return mockFn();
+  }
+}
 let _shareholders = [...MOCK_SHAREHOLDERS];
 let _units        = [...MOCK_UNITS];
 let _apartments   = [...MOCK_APARTMENTS];
 let _ownerships   = [...MOCK_OWNERSHIPS];
 let _shareholderUnits: ShareholderUnitDto[] = [];
 let _nextId       = 100;
+
+// ─── Mock audits (in-memory) ──────────────────────────────────────────────────
+let MOCK_AUDITS: FinancialAuditDto[] = [
+  {
+    id: 1, name: "جرد 1",
+    fromDate: "2026-06-01", toDate: "2026-06-30",
+    openingBalance: 0,
+    totalRevenue: 1_064_000, totalExpenses: 289_121,
+    netResult: 774_879, closingBalance: 774_879,
+    previousAuditId: null, createdAt: "2026-07-01T10:00:00Z",
+  },
+  {
+    id: 2, name: "جرد 2",
+    fromDate: "2026-07-01", toDate: "2026-07-31",
+    openingBalance: 774_879,
+    totalRevenue: 55_000, totalExpenses: 18_500,
+    netResult: 36_500, closingBalance: 811_379,
+    previousAuditId: 1, createdAt: "2026-08-01T10:00:00Z",
+  },
+  {
+    id: 3, name: "جرد 3",
+    fromDate: "2026-08-01", toDate: "2026-08-31",
+    openingBalance: 811_379,
+    totalRevenue: 120_000, totalExpenses: 95_000,
+    netResult: 25_000, closingBalance: 836_379,
+    previousAuditId: 2, createdAt: "2026-09-01T10:00:00Z",
+  },
+];
 
 export const api = {
 
@@ -355,6 +396,80 @@ export const api = {
     ),
   },
 
+  // ─── FinancialCategories ──────────────────────────────────────────────────
+  financialCategories: {
+    list: (type?: TransactionType) => {
+      const q = type !== undefined ? `?TransactionType=${type}` : "";
+      return request<FinancialCategoryDto[]>(`/FinancialCategories${q}`);
+    },
+    get: (id: number) => request<FinancialCategoryDto>(`/FinancialCategories/${id}`),
+    create: (data: CreateFinancialCategoryDto) =>
+      request<FinancialCategoryDto>("/FinancialCategories", { method:"POST", body:JSON.stringify(data) }),
+    update: (id: number, data: UpdateFinancialCategoryDto) =>
+      request<FinancialCategoryDto>(`/FinancialCategories/${id}`, { method:"PUT", body:JSON.stringify(data) }),
+    delete: (id: number) =>
+      request<void>(`/FinancialCategories/${id}`, { method:"DELETE" }),
+  },
+
+  // ─── FinancialTransactions ────────────────────────────────────────────────
+  financialTransactions: {
+    list: (params?: {
+      categoryId?: number; type?: TransactionType;
+      fromDate?: string; toDate?: string; auditNo?: number;
+    }) => {
+      const q = new URLSearchParams();
+      if (params?.categoryId !== undefined) q.set("categoryId", String(params.categoryId));
+      if (params?.type        !== undefined) q.set("type",       String(params.type));
+      if (params?.fromDate)                  q.set("fromDate",   params.fromDate);
+      if (params?.toDate)                    q.set("toDate",     params.toDate);
+      if (params?.auditNo     !== undefined) q.set("auditNo",    String(params.auditNo));
+      const qs = q.toString();
+      return request<FinancialTransactionDto[]>(`/FinancialTransactions${qs ? "?" + qs : ""}`);
+    },
+    get: (id: number) =>
+      request<FinancialTransactionDto>(`/FinancialTransactions/${id}`),
+    summary: (params?: { fromDate?: string; toDate?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.fromDate) q.set("fromDate", params.fromDate);
+      if (params?.toDate)   q.set("toDate",   params.toDate);
+      const qs = q.toString();
+      return request<FinancialSummaryDto>(`/FinancialTransactions/summary${qs ? "?" + qs : ""}`);
+    },
+    create: (data: CreateFinancialTransactionDto) =>
+      request<FinancialTransactionDto>("/FinancialTransactions", { method:"POST", body:JSON.stringify(data) }),
+    update: (id: number, data: UpdateFinancialTransactionDto) =>
+      request<FinancialTransactionDto>(`/FinancialTransactions/${id}`, { method:"PUT", body:JSON.stringify(data) }),
+    delete: (id: number) =>
+      request<void>(`/FinancialTransactions/${id}`, { method:"DELETE" }),
+  },
+
+  // ─── FinancialAudits (الجرد) ─────────────────────────────────────────────
+  financialAudits: {
+    list: () => withAlwaysFallback(
+      () => request<FinancialAuditDto[]>("/FinancialAudits"),
+      () => [...MOCK_AUDITS]
+    ),
+    get: (id: number) => withAlwaysFallback(
+      () => request<FinancialAuditDto>(`/FinancialAudits/${id}`),
+      () => {
+        const a = MOCK_AUDITS.find(x => x.id === id);
+        if (!a) throw new Error("Not found");
+        return a;
+      }
+    ),
+    create: (data: CreateFinancialAuditDto) => withAlwaysFallback(
+      () => request<FinancialAuditDto>("/FinancialAudits", { method:"POST", body:JSON.stringify(data) }),
+      () => {
+        const next: FinancialAuditDto = { ...data, id: Date.now(), createdAt: new Date().toISOString() };
+        MOCK_AUDITS = [...MOCK_AUDITS, next];
+        return next;
+      }
+    ),
+    delete: (id: number) => withAlwaysFallback(
+      () => request<void>(`/FinancialAudits/${id}`, { method:"DELETE" }),
+      () => { MOCK_AUDITS = MOCK_AUDITS.filter(a => a.id !== id); }
+    ),
+  },
   // ─── ShareholderContracts ──────────────────────────────────────────────────
   contracts: {
     getAll: () =>

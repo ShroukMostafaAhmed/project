@@ -228,7 +228,92 @@ export interface UpdateApartmentOwnershipDto {
   ownershipPercentage?: number;
 }
 
-// ─── Shareholder Contracts ────────────────────────────────────────────────────
+// ─── Financial ────────────────────────────────────────────────────────────────
+
+export enum TransactionType {
+  Revenue = 1,
+  Expense = 2,
+}
+
+export enum PaymentMethod {
+  Cash    = 1,
+  Bank    = 2,
+  Cheque  = 3,
+}
+
+export const TransactionTypeLabels: Record<TransactionType, string> = {
+  [TransactionType.Revenue]: "إيراد",
+  [TransactionType.Expense]: "مصروف",
+};
+
+export const PaymentMethodLabels: Record<PaymentMethod, string> = {
+  [PaymentMethod.Cash]:   "نقدي",
+  [PaymentMethod.Bank]:   "تحويل بنكي",
+  [PaymentMethod.Cheque]: "شيك",
+};
+
+export interface FinancialCategoryDto {
+  id:          number;
+  name:        string;
+  type:        TransactionType;
+  description: string | null;
+}
+
+export interface CreateFinancialCategoryDto {
+  name:         string;
+  type:         TransactionType;
+  description?: string | null;
+}
+
+export interface UpdateFinancialCategoryDto {
+  name?:        string;
+  type?:        TransactionType;
+  description?: string | null;
+  
+}
+
+export interface FinancialTransactionDto {
+  id:            number;
+  categoryId:    number;
+  categoryName?: string | null;
+  type:          TransactionType;
+  amount:        number;
+  description?:  string | null;
+  date:          string;
+  notes:         string | null;
+  auditNo?:      number | null;
+  paymentMethod?: PaymentMethod | null;
+  unitId?:       number | null;
+  unitName?:     string | null;
+}
+
+export interface CreateFinancialTransactionDto {
+  categoryId:     number;
+  type:           TransactionType;
+  amount:         number;
+  description?:   string | null;
+  date:           string;
+  notes:   string | null;
+  auditNo?:       number | null;
+  paymentMethod?: PaymentMethod | null;
+  unitId?:        number | null;
+}
+
+export interface UpdateFinancialTransactionDto {
+  categoryId?:    number;
+  amount?:        number;
+  description?:   string | null;
+  date?:          string;
+  notes:   string | null;
+  paymentMethod?: PaymentMethod | null;
+}
+
+export interface FinancialSummaryDto {
+  totalRevenue:  number;
+  totalExpenses: number;
+  netProfit:     number;
+  auditNo?:      number | null;
+}
 
 export interface ShareholderContractDto {
   id:            number;
@@ -271,3 +356,21 @@ export interface LoginResponseDto {
   shareholderName: string | null;
   shareholderId:   number | null;
 }
+
+// ─── Financial Audit (جرد) ────────────────────────────────────────────────────
+
+export interface FinancialAuditDto {
+  id:               number;
+  name:             string;
+  fromDate:         string;
+  toDate:           string;
+  openingBalance:   number;
+  totalRevenue:     number;
+  totalExpenses:    number;
+  netResult:        number;
+  closingBalance:   number;
+  previousAuditId:  number | null;
+  createdAt:        string;
+}
+
+export type CreateFinancialAuditDto = Omit<FinancialAuditDto, "id" | "createdAt">;

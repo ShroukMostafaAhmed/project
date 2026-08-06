@@ -1,142 +1,216 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  Plus, ArrowUpCircle, ArrowDownCircle, Search,
-  Printer, SlidersHorizontal, X,
-  TrendingUp, TrendingDown, Wallet, Pencil, Trash2,
+  Plus, TrendingUp, TrendingDown, Wallet, Printer,
+  RefreshCw, Trash2, Pencil, AlertCircle, Tag, X,
 } from "lucide-react";
 import DashboardShell from "@/app/components/layout/DashboardShell";
 import PageHeader from "@/app/components/ui/PageHeader";
 import Modal from "@/app/components/ui/Modal";
+import { ListSkeleton } from "@/app/components/ui/Skeleton";
+import { api } from "@/app/lib/api";
+import { useUnits } from "@/app/lib/hooks";
+import {
+  FinancialCategoryDto, FinancialTransactionDto, FinancialSummaryDto,
+  TransactionType, TransactionTypeLabels,
+  PaymentMethod, PaymentMethodLabels,
+} from "@/app/lib/types";
 import { formatCurrency, formatDate } from "@/app/lib/utils";
 
-type TxType = "صرف" | "إيداع";
-
-interface Transaction {
-  id: number; type: TxType; amount: number;
-  description: string; category: string; date: string; unit?: string;
+/* ── helpers ── */
+function cStyle(): React.CSSProperties {
+  return { background:"var(--card)", border:"1px solid var(--card-border)" };
 }
-
-const INIT: Transaction[] = [
-  { id:1, type:"صرف",   amount:15000, description:"صيانة المصعد",        category:"صيانة",  date:"2026-01-15", unit:"برج A1"  },
-  { id:2, type:"إيداع", amount:50000, description:"إيجار الطابق الأرضي", category:"إيجار",  date:"2026-01-20", unit:"برج A1"  },
-  { id:3, type:"صرف",   amount:8000,  description:"فواتير الكهرباء",     category:"مرافق",  date:"2026-01-25", unit:"برج A2"  },
-  { id:4, type:"صرف",   amount:3500,  description:"نظافة المبنى",        category:"خدمات",  date:"2026-02-01", unit:"برج A1"  },
-  { id:5, type:"إيداع", amount:75000, description:"بيع شقة 304",         category:"مبيعات", date:"2026-02-10", unit:"برج A2"  },
-  { id:6, type:"صرف",   amount:12000, description:"رواتب الحراسة",       category:"رواتب",  date:"2026-02-15", unit:"الشركة" },
-  { id:7, type:"إيداع", amount:30000, description:"دفعة مقدمة شقة 201",  category:"مبيعات", date:"2026-03-01", unit:"برج A1"  },
-  { id:8, type:"صرف",   amount:5000,  description:"رسوم قانونية",        category:"أخرى",   date:"2026-03-05", unit:"الشركة" },
-];
-
-const CATS = ["الكل","صيانة","مرافق","رواتب","خدمات","إيجار","مبيعات","أخرى"];
-
-/* ── small helpers ──────────────────────────────────────────────────────────── */
-function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--muted)" }}>
-        {label}{required && <span className="text-red-400 mr-1">*</span>}
-      </label>
-      {children}
-    </div>
-  );
+function iStyle(): React.CSSProperties {
+  return { background:"var(--input-bg)", borderColor:"var(--input-border)", color:"var(--foreground)" };
 }
+const ic = "w-full px-3.5 py-2.5 rounded-xl text-sm border focus:outline-none transition-all";
 
-function inputCls(extra = "") {
-  return `w-full px-3.5 py-2.5 rounded-xl text-sm border focus:outline-none transition-all ${extra}`;
-}
+/* neutral accent used everywhere EXCEPT the expense/deposit toggle */
+const NEUTRAL_ACCENT = "#6366f1";
+const NEUTRAL_ACCENT_BG = "rgba(99,102,241,.08)";
+
+const EMPTY = {
+  categoryId:"", amount:"", description:"", notes:"",
+  date: new Date().toISOString().split("T")[0],
+};
 
 export default function AdminExpensesPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>(INIT);
+  const { units } = useUnits();
 
-  /* filters */
-  const [search,      setSearch]      = useState("");
-  const [filterType,  setFilterType]  = useState<"الكل" | TxType>("الكل");
-  const [filterCat,   setFilterCat]   = useState("الكل");
-  const [dateFrom,    setDateFrom]    = useState("");
-  const [dateTo,      setDateTo]      = useState("");
-  const [showFilters, setShowFilters] = useState(false);
+  /* ── data ── */
+  const [categories,   setCategories]   = useState<FinancialCategoryDto[]>([]);
+  const [transactions, setTransactions] = useState<FinancialTransactionDto[]>([]);
+  const [summary,      setSummary]      = useState<FinancialSummaryDto|null>(null);
+  const [loading,      setLoading]      = useState(true);
+  const [error,        setError]        = useState("");
 
-  /* add / edit modal */
-  const [showAdd,  setShowAdd]  = useState(false);
-  const [editId,   setEditId]   = useState<number | null>(null);
-  const [form, setForm] = useState({
-    type:"صرف" as TxType, amount:"", description:"",
-    category:"أخرى", date: new Date().toISOString().split("T")[0], unit:"",
-  });
+  /* ── selected category (null = all categories loaded, button selected) ── */
+  const [activeCatId, setActiveCatId] = useState<number|"all"|null>(null);
 
-  function openAdd() {
-    setEditId(null);
-    setForm({ type:"صرف", amount:"", description:"", category:"أخرى", date:new Date().toISOString().split("T")[0], unit:"" });
-    setShowAdd(true);
-  }
+  /* ── date filter ── */
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo,   setDateTo]   = useState("");
 
-  function openEdit(t: Transaction) {
-    setEditId(t.id);
-    setForm({ type:t.type, amount:String(t.amount), description:t.description, category:t.category, date:t.date, unit:t.unit ?? "" });
-    setShowAdd(true);
-  }
+  /* ── search ── */
+  const [search, setSearch] = useState("");
 
-  /* derived */
+  /* ── modals ── */
+  const [showAdd,    setShowAdd]    = useState(false);
+  const [editItem,   setEditItem]   = useState<FinancialTransactionDto|null>(null);
+  const [deleteId,   setDeleteId]   = useState<number|null>(null);
+  const [showAddCat, setShowAddCat] = useState(false);
+  const [saving,     setSaving]     = useState(false);
+  const [formErr,    setFormErr]    = useState("");
+  const [txForm,     setTxForm]     = useState({ ...EMPTY, type: TransactionType.Expense as TransactionType });
+  const [catForm,    setCatForm]    = useState({ name:"", type: TransactionType.Expense as TransactionType, description:"" });
+
+  /* ── load categories first ── */
+  const loadCategories = useCallback(async () => {
+    try {
+      const data = await api.financialCategories.list();
+      const cats = Array.isArray(data) ? data : [];
+      setCategories(cats);
+      // auto-select first category if none selected
+      if (activeCatId === null && cats.length > 0) {
+        setActiveCatId(cats[0].id);
+      }
+    } catch { /* ignore */ }
+  }, [activeCatId]);
+
+  useEffect(() => { loadCategories(); }, []); // eslint-disable-line
+
+  /* ── load transactions for selected category ── */
+  const loadTransactions = useCallback(async () => {
+    if (activeCatId === null) return;
+    setLoading(true); setError("");
+    try {
+      const params: Record<string,unknown> = {};
+      if (activeCatId !== "all") params.categoryId = activeCatId;
+      if (dateFrom) params.fromDate = dateFrom;
+      if (dateTo)   params.toDate   = dateTo;
+
+      const [txData, sumData] = await Promise.all([
+        api.financialTransactions.list(params as Parameters<typeof api.financialTransactions.list>[0]),
+        api.financialTransactions.summary(dateFrom||dateTo ? { fromDate:dateFrom||undefined, toDate:dateTo||undefined } : undefined),
+      ]);
+      setTransactions(Array.isArray(txData) ? txData : []);
+      setSummary(sumData);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeCatId, dateFrom, dateTo]);
+
+  useEffect(() => { loadTransactions(); }, [loadTransactions]);
+
+  /* ── filtered rows ── */
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return transactions.filter((t) => {
-      const mQ  = !q || t.description.toLowerCase().includes(q) || (t.unit??"").toLowerCase().includes(q) || t.category.toLowerCase().includes(q);
-      const mT  = filterType === "الكل" || t.type === filterType;
-      const mC  = filterCat  === "الكل" || t.category === filterCat;
-      const mDF = !dateFrom || t.date >= dateFrom;
-      const mDT = !dateTo   || t.date <= dateTo;
-      return mQ && mT && mC && mDF && mDT;
+    return transactions.filter(t =>
+      !q ||
+      (t.description  ?? "").toLowerCase().includes(q) ||
+      (t.categoryName ?? "").toLowerCase().includes(q) ||
+      String(t.auditNo ?? "").includes(q)
+    );
+  }, [transactions, search]);
+
+  /* ── Summary computed from filtered rows (accurate per category+date) ── */
+  const totalRevenue  = filtered.filter(t=>t.type===TransactionType.Revenue).reduce((s,t)=>s+t.amount,0);
+  const totalExpenses = filtered.filter(t=>t.type===TransactionType.Expense).reduce((s,t)=>s+t.amount,0);
+  const net           = totalRevenue - totalExpenses;
+
+  /* ── active category meta ── */
+  const activeCat = activeCatId === "all" ? null : categories.find(c => c.id === activeCatId);
+  const catType   = activeCat?.type ?? null;
+  const accent    = catType === TransactionType.Revenue ? "#10b981"
+                  : catType === TransactionType.Expense ? "#ef4444"
+                  : "#6366f1";
+  const accentBg  = catType === TransactionType.Revenue ? "rgba(16,185,129,.1)"
+                  : catType === TransactionType.Expense ? "rgba(239,68,68,.1)"
+                  : "rgba(99,102,241,.1)";
+
+  /* ── actions ── */
+  async function handleSaveTx(e: React.FormEvent) {
+    e.preventDefault(); setSaving(true); setFormErr("");
+    try {
+      if (editItem) {
+        await api.financialTransactions.update(editItem.id, {
+          categoryId:  txForm.categoryId ? parseInt(txForm.categoryId) : undefined,
+          amount:      txForm.amount     ? parseFloat(txForm.amount)   : undefined,
+          description: txForm.description || null,
+          notes:       txForm.notes || null,
+          date:        txForm.date        || undefined,
+        });
+        setEditItem(null);
+      } else {
+        await api.financialTransactions.create({
+          categoryId:  parseInt(txForm.categoryId),
+          type:        txForm.type,
+          amount:      parseFloat(txForm.amount),
+          description: txForm.description || null,
+          notes:       txForm.notes || null,
+          date:        txForm.date,
+        });
+        setShowAdd(false);
+      }
+      setTxForm({ ...EMPTY, type: catType ?? TransactionType.Expense });
+      await loadTransactions();
+    } catch (err) { setFormErr((err as Error).message); }
+    finally { setSaving(false); }
+  }
+
+  async function handleDelete() {
+    if (!deleteId) return;
+    try { await api.financialTransactions.delete(deleteId); setDeleteId(null); await loadTransactions(); }
+    catch (err) { alert((err as Error).message); }
+  }
+
+  async function handleAddCat(e: React.FormEvent) {
+    e.preventDefault(); setSaving(true); setFormErr("");
+    try {
+      const cat = await api.financialCategories.create({ name:catForm.name, type:catForm.type, description:catForm.description||null });
+      setShowAddCat(false);
+      setCatForm({ name:"", type: TransactionType.Expense, description:"" });
+      await loadCategories();
+      if (cat) setActiveCatId((cat as FinancialCategoryDto).id);
+    } catch (err) { setFormErr((err as Error).message); }
+    finally { setSaving(false); }
+  }
+
+  function openEdit(t: FinancialTransactionDto) {
+    setEditItem(t);
+    setTxForm({
+      type: t.type,
+      categoryId:  String(t.categoryId),
+      amount:      String(t.amount),
+      description: t.description ?? "",
+      notes:       (t as {notes?:string}).notes ?? "",
+      date:        t.date ? t.date.split("T")[0] : "",
     });
-  }, [transactions, search, filterType, filterCat, dateFrom, dateTo]);
-
-  const totalIn  = transactions.filter(t => t.type === "إيداع").reduce((s,t) => s+t.amount, 0);
-  const totalOut = transactions.filter(t => t.type === "صرف").  reduce((s,t) => s+t.amount, 0);
-  const balance  = totalIn - totalOut;
-  const fIn      = filtered.filter(t => t.type === "إيداع").reduce((s,t) => s+t.amount, 0);
-  const fOut     = filtered.filter(t => t.type === "صرف").  reduce((s,t) => s+t.amount, 0);
-  const hasFilter = !!(search || filterType !== "الكل" || filterCat !== "الكل" || dateFrom || dateTo);
-
-  function handleAdd(e: React.FormEvent) {
-    e.preventDefault();
-    if (editId !== null) {
-      // Update existing
-      setTransactions(p => p.map(t => t.id === editId
-        ? { ...t, type:form.type, amount:parseFloat(form.amount), description:form.description, category:form.category, date:form.date, unit:form.unit||undefined }
-        : t
-      ));
-    } else {
-      // New entry
-      setTransactions(p => [{ id:Date.now(), type:form.type, amount:parseFloat(form.amount),
-        description:form.description, category:form.category, date:form.date, unit:form.unit||undefined }, ...p]);
-    }
-    setShowAdd(false);
-    setEditId(null);
+    setFormErr("");
   }
-
-  function handleDelete(id: number) {
-    if (!confirm("هل أنت متأكد من حذف هذه الحركة؟")) return;
-    setTransactions(p => p.filter(t => t.id !== id));
-  }
-
-  function clear() { setSearch(""); setFilterType("الكل"); setFilterCat("الكل"); setDateFrom(""); setDateTo(""); }
 
   /* ── render ── */
   return (
-    <DashboardShell title="المصاريف">
+    <DashboardShell title="المصاريف والإيرادات">
       <PageHeader
         title="المصاريف والإيرادات"
-        subtitle="سجل جميع حركات الصرف والإيداع"
+        subtitle="اختر تصنيفاً لعرض حركاته"
         actions={
           <div className="flex gap-2 no-print">
-            <button onClick={() => window.print()}
-              className="flex items-center gap-2 text-sm font-medium px-3 py-2 rounded-xl border transition-colors"
-              style={{ background:"var(--card)", color:"var(--foreground)", borderColor:"var(--card-border)" }}>
-              <Printer className="w-4 h-4" /> طباعة
+            <button onClick={() => window.print()} className="w-9 h-9 rounded-xl border flex items-center justify-center" style={cStyle()} title="طباعة">
+              <Printer className="w-4 h-4" style={{ color:"var(--muted)" }} />
             </button>
-            <button onClick={openAdd}
-              className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl text-white transition-colors"
+            <button onClick={() => { setShowAddCat(true); setFormErr(""); }}
+              className="flex items-center gap-2 text-sm font-medium px-3 py-2 rounded-xl border" style={cStyle()}>
+              <Tag className="w-4 h-4" style={{ color:"var(--muted)" }} />
+              تصنيف جديد
+            </button>
+            <button onClick={() => { setShowAdd(true); setTxForm({ ...EMPTY, type: catType ?? TransactionType.Expense, categoryId: activeCatId && activeCatId !== "all" ? String(activeCatId) : "" }); setFormErr(""); }}
+              className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl text-white"
               style={{ background:"linear-gradient(135deg,#6366f1,#7c3aed)", boxShadow:"0 3px 12px rgba(99,102,241,.3)" }}>
               <Plus className="w-4 h-4" /> إضافة حركة
             </button>
@@ -144,343 +218,458 @@ export default function AdminExpensesPage() {
         }
       />
 
-      {/* ── Summary cards ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
-        {[
-          { label:"إجمالي الإيداعات", value:totalIn,  icon:TrendingUp,   clr:"#10b981", bg:"rgba(16,185,129,.1)",  border:"rgba(16,185,129,.25)"  },
-          { label:"إجمالي المصاريف",  value:totalOut, icon:TrendingDown, clr:"#ef4444", bg:"rgba(239,68,68,.1)",   border:"rgba(239,68,68,.25)"   },
-          { label:"الرصيد الصافي",    value:balance,  icon:Wallet,
-            clr:balance>=0?"#6366f1":"#f59e0b",
-            bg:balance>=0?"rgba(99,102,241,.1)":"rgba(245,158,11,.1)",
-            border:balance>=0?"rgba(99,102,241,.25)":"rgba(245,158,11,.25)" },
-        ].map(({ label, value, icon:Icon, clr, bg, border }) => (
-          <div key={label}
-            className="rounded-2xl p-4 flex items-center gap-4 transition-all hover:-translate-y-0.5"
-            style={{ background:"var(--card)", border:`1px solid var(--card-border)` }}>
-            {/* Icon */}
-            <div className="p-3 rounded-xl shrink-0" style={{ background: bg, border:`1px solid ${border}` }}>
-              <Icon className="w-5 h-5" style={{ color: clr }} />
-            </div>
-            <div>
-              <p className="text-xs font-medium mb-0.5" style={{ color:"var(--muted)" }}>{label}</p>
-              <p className="text-xl font-bold" style={{ color: clr }}>{formatCurrency(value)}</p>
-            </div>
-          </div>
-        ))}
+      {/* ══ Category buttons — "الكل" Button and Categories ══ */}
+      <div className="flex flex-wrap gap-2 mb-6 no-print">
+        {/* "الكل" button */}
+        <button
+          onClick={() => { setActiveCatId("all"); setSearch(""); }}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-all"
+          style={activeCatId === "all"
+            ? { background:"linear-gradient(135deg,#6366f1,#7c3aed)", color:"#fff", borderColor:"transparent", boxShadow:"0 3px 12px rgba(99,102,241,.3)" }
+            : { ...cStyle(), color:"var(--muted)" }
+          }>
+          الكل
+          <span className="text-[11px] px-1.5 py-0.5 rounded-full"
+            style={activeCatId === "all"
+              ? { background:"rgba(255,255,255,.2)", color:"#fff" }
+              : { background:"rgba(128,128,128,.1)", color:"var(--muted)" }}>
+            {transactions.length}
+          </span>
+        </button>
+
+        {/* Category buttons - Back to Red as requested */}
+        {categories.map(cat => {
+          const isActive = activeCatId === cat.id;
+          return (
+            <button key={cat.id}
+              onClick={() => { setActiveCatId(cat.id); setSearch(""); }}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-all"
+              style={isActive
+                ? { background:"linear-gradient(135deg,#6366f1,#7c3aed)", color:"#fff", borderColor:"transparent", boxShadow:"0 3px 12px rgba(99,102,241,.3)" }
+                : { ...cStyle(), color:"var(--muted)" }
+              }>
+              {cat.name}
+              <span className="text-[11px] px-1.5 py-0.5 rounded-full"
+                style={isActive
+                  ? { background:"rgba(255,255,255,.2)", color:"#fff" }
+                  : { background:"rgba(128,128,128,.1)", color:"var(--muted)" }}>
+                {isActive ? transactions.filter(t => t.categoryId === cat.id).length : ""}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* ── Filter bar ── */}
-      <div className="flex flex-wrap gap-2 mb-3 no-print">
-        {/* Search */}
-        <div className="relative flex-1 min-w-48">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color:"var(--muted)" }} />
-          <input
-            value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="بحث..."
-            className={inputCls("pr-9 pl-8")}
-            style={{ background:"var(--card)", borderColor:"var(--card-border)", color:"var(--foreground)" }}
-          />
-          {search && (
-            <button onClick={() => setSearch("")} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color:"var(--muted)" }}>
+      {/* ══ Summary cards + Date filter (same row) ══ */}
+      <div className="flex flex-wrap items-start gap-4 mb-5">
+        {/* Cards */}
+        <div className="flex flex-wrap gap-3 flex-1">
+          {[
+            { label:"الإيرادات",   value: totalRevenue,  clr:"#10b981", bg:"rgba(16,185,129,.1)",  icon:TrendingUp   },
+            { label:"المصروفات",   value: totalExpenses, clr:"#ef4444", bg:"rgba(239,68,68,.1)",   icon:TrendingDown  },
+            { label:"الصافي",      value: net,           clr: net>=0?"#6366f1":"#f59e0b",
+              bg: net>=0?"rgba(99,102,241,.1)":"rgba(245,158,11,.1)", icon:Wallet },
+          ].map(({ label, value, clr, bg, icon:Icon }) => (
+            <div key={label} className="rounded-2xl p-4 flex items-center gap-3 min-w-40 flex-1" style={cStyle()}>
+              <div className="p-2.5 rounded-xl shrink-0" style={{ background:bg }}>
+                <Icon className="w-4 h-4" style={{ color:clr }} />
+              </div>
+              <div>
+                <p className="text-xs font-medium" style={{ color:"var(--muted)" }}>{label}</p>
+                <p className="text-lg font-bold" style={{ color:clr }}>{formatCurrency(value)}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Date filter — جنب الكروت مباشرة */}
+        <div className="flex items-end gap-2 shrink-0 no-print">
+          <div>
+            <label className="block text-xs font-semibold mb-1.5" style={{ color:"var(--muted)" }}>من</label>
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+              className={ic + " w-36"} style={iStyle()} />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold mb-1.5" style={{ color:"var(--muted)" }}>إلى</label>
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+              className={ic + " w-36"} style={iStyle()} />
+          </div>
+          {(dateFrom || dateTo) && (
+            <button onClick={() => { setDateFrom(""); setDateTo(""); }}
+              className="px-3 py-2.5 rounded-xl text-xs font-medium border transition-colors"
+              style={{ color:"#ef4444", borderColor:"rgba(239,68,68,.3)", background:"rgba(239,68,68,.06)" }}>
               <X className="w-3.5 h-3.5" />
             </button>
           )}
+          <button onClick={loadTransactions} className="w-10 h-10 rounded-xl border flex items-center justify-center" style={cStyle()} title="تحديث">
+            <RefreshCw className="w-4 h-4" style={{ color:"var(--muted)" }} />
+          </button>
         </div>
-
-        {/* Type pills */}
-        <div className="flex rounded-xl p-1 gap-0.5 border"
-          style={{ background:"var(--card)", borderColor:"var(--card-border)" }}>
-          {(["الكل","إيداع","صرف"] as const).map((v) => (
-            <button key={v} onClick={() => setFilterType(v)}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-              style={filterType===v
-                ? { background: v==="إيداع"?"#10b981":v==="صرف"?"#ef4444":"#6366f1", color:"#fff" }
-                : { color:"var(--muted)", background:"transparent" }
-              }>
-              {v}
-            </button>
-          ))}
-        </div>
-
-        {/* Filters button */}
-        <button
-          onClick={() => setShowFilters(v => !v)}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium border transition-all no-print"
-          style={{
-            background:   showFilters ? "rgba(99,102,241,.1)" : "var(--card)",
-            color:        showFilters ? "#6366f1" : "var(--muted)",
-            borderColor:  showFilters ? "rgba(99,102,241,.3)" : "var(--card-border)",
-          }}>
-          <SlidersHorizontal className="w-4 h-4" />
-          فلترة
-          {hasFilter && <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />}
-        </button>
       </div>
 
-      {/* ── Expanded filters ── */}
-      {showFilters && (
-        <div className="flex flex-wrap gap-3 mb-4 p-4 rounded-2xl border no-print"
-          style={{ background:"var(--card)", borderColor:"var(--card-border)" }}>
-          {[
-            { label:"التصنيف", type:"select" as const },
-            { label:"من تاريخ", type:"date" as const, name:"dateFrom" },
-            { label:"إلى تاريخ", type:"date" as const, name:"dateTo"  },
-          ].map((f) => (
-            <div key={f.label}>
-              <label className="block text-xs font-medium mb-1.5" style={{ color:"var(--muted)" }}>{f.label}</label>
-              {f.type === "select" ? (
-                <select value={filterCat} onChange={e => setFilterCat(e.target.value)}
-                  className={inputCls("w-36")}
-                  style={{ background:"var(--input-bg)", borderColor:"var(--input-border)", color:"var(--foreground)" }}>
-                  {CATS.map(c => <option key={c}>{c}</option>)}
-                </select>
-              ) : (
-                <input type="date"
-                  value={f.name === "dateFrom" ? dateFrom : dateTo}
-                  onChange={e => f.name === "dateFrom" ? setDateFrom(e.target.value) : setDateTo(e.target.value)}
-                  className={inputCls("")}
-                  style={{ background:"var(--input-bg)", borderColor:"var(--input-border)", color:"var(--foreground)" }}
-                />
-              )}
+      {error && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl mb-4 text-sm" style={{ background:"rgba(239,68,68,.1)", border:"1px solid rgba(239,68,68,.25)", color:"#ef4444" }}>
+          <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+        </div>
+      )}
+
+      {/* ══ Table ══ */}
+      {loading ? <ListSkeleton rows={6} cols={7} /> : (
+        <div className="rounded-2xl border overflow-hidden shadow-sm" style={cStyle()}>
+          {/* Toolbar - Removed the red side category name label */}
+          <div className="flex items-center justify-between px-5 py-3 border-b no-print" style={{ borderColor:"var(--card-border)", background:"rgba(128,128,128,.04)" }}>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold" style={{ color:"var(--foreground)" }}>
+                {activeCatId === "all" ? "جميع الحركات" : activeCat?.name ?? ""}
+              </span>
             </div>
-          ))}
+            <div className="flex items-center gap-2">
+              {/* inline search */}
+              <div className="relative">
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث..."
+                  className="pl-4 pr-8 py-1.5 rounded-xl text-xs border focus:outline-none"
+                  style={{ ...iStyle(), width:160 }} />
+                {search && <button onClick={() => setSearch("")} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color:"var(--muted)" }}><X className="w-3 h-3" /></button>}
+              </div>
+              <span className="text-xs px-2.5 py-1 rounded-full" style={{ background:"rgba(128,128,128,.1)", color:"var(--muted)" }}>
+                {filtered.length} حركة
+              </span>
+            </div>
+          </div>
 
-          {hasFilter && (
-            <button onClick={clear} className="self-end px-3 py-2 text-xs font-medium rounded-xl border transition-colors"
-              style={{ color:"#ef4444", borderColor:"rgba(239,68,68,.3)", background:"rgba(239,68,68,.06)" }}>
-              مسح الكل
-            </button>
-          )}
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm" style={{ tableLayout:"fixed" }}>
+              <colgroup>
+                <col style={{ width:"6%" }} />
+                <col style={{ width:"12%" }} />
+                <col style={{ width:"34%" }} />
+                <col style={{ width:"16%" }} />
+                <col style={{ width:"16%" }} />
+                <col style={{ width:"16%" }} />
+              </colgroup>
+              <thead>
+                <tr style={{ borderBottom:"2px solid var(--card-border)" }}>
+                  <th style={{ color:"var(--muted)", background:"rgba(128,128,128,.05)", padding:"10px 12px", textAlign:"right", fontSize:11, fontWeight:700 }}>م</th>
+                  <th style={{ color:"var(--muted)", background:"rgba(128,128,128,.05)", padding:"10px 12px", textAlign:"right", fontSize:11, fontWeight:700, whiteSpace:"nowrap" }}>التاريخ</th>
+                  <th style={{ color:"var(--muted)", background:"rgba(128,128,128,.05)", padding:"10px 16px", textAlign:"right", fontSize:11, fontWeight:700 }}>البند / الوصف</th>
+                  <th style={{ color:"var(--muted)", background:"rgba(128,128,128,.05)", padding:"10px 12px", textAlign:"right", fontSize:11, fontWeight:700, whiteSpace:"nowrap" }}>المبلغ (ج.م)</th>
+                  <th style={{ color:"var(--muted)", background:"rgba(128,128,128,.05)", padding:"10px 12px", textAlign:"right", fontSize:11, fontWeight:700 }}>ملاحظات</th>
+                  <th style={{ color:"var(--muted)", background:"rgba(128,128,128,.05)", padding:"10px 12px", textAlign:"center", fontSize:11, fontWeight:700 }}>إجراءات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={6} className="py-16 text-center" style={{ color:"var(--muted)" }}>
+                    لا توجد حركات{(dateFrom||dateTo) && " في هذه الفترة"}
+                  </td></tr>
+                ) : filtered.map((t,i) => {
+                  // parse date safely
+                  const rawDate = t.date;
+                  const dateStr = rawDate && !rawDate.startsWith("0001")
+                    ? formatDate(rawDate) : "—";
 
-          <div className="self-end flex gap-3 mr-auto text-xs font-semibold">
-            <span style={{ color:"#10b981" }}>+{formatCurrency(fIn)}</span>
-            <span style={{ color:"#ef4444" }}>−{formatCurrency(fOut)}</span>
-            <span style={{ color:"var(--muted)" }}>({filtered.length} حركة)</span>
+                  return (
+                    <tr key={t.id}
+                      style={{ borderBottom:"1px solid var(--card-border)" }}
+                      onMouseEnter={e=>e.currentTarget.style.background="rgba(128,128,128,.05)"}
+                      onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+
+                      {/* م */}
+                      <td style={{ padding:"12px", color:"var(--muted)", fontSize:12, textAlign:"right" }}>
+                        {i+1}
+                      </td>
+
+                      {/* التاريخ */}
+                      <td style={{ padding:"12px", color:"var(--foreground)", fontSize:12, whiteSpace:"nowrap" }}>
+                        {dateStr}
+                      </td>
+
+                      {/* البند / الوصف — in one column, description + category hint */}
+                      <td style={{ padding:"12px 16px", overflow:"hidden" }}>
+                        <p style={{ color:"var(--foreground)", fontSize:13, fontWeight:500, lineHeight:1.4, margin:0, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                          {t.description || "—"}
+                        </p>
+                        {t.categoryName && (
+                          <p style={{ color:"var(--muted)", fontSize:11, margin:"2px 0 0 0", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                            {t.categoryName}
+                          </p>
+                        )}
+                      </td>
+
+                      {/* المبلغ — +/- بلون واحد للتمييز */}
+                      <td style={{ padding:"12px", fontWeight:700, fontSize:13, whiteSpace:"nowrap",
+                        }}>
+                      {formatCurrency(t.amount)}
+                      </td>
+
+                      {/* ملاحظات */}
+                      <td style={{ padding:"12px", color:"var(--muted)", fontSize:12, fontStyle:"italic", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                        {(t as {notes?:string}).notes ?? "—"}
+                      </td>
+
+                 {/* إجراءات */}
+                      <td style={{ padding:"12px", textAlign:"center" }}>
+                        <div style={{ display:"flex", gap:4, justifyContent:"center" }}>
+                          <button onClick={() => openEdit(t)}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
+                            style={{ color:"#6366f1" }}
+                            onMouseEnter={e=>{ e.currentTarget.style.background="rgba(99,102,241,.12)"; }}
+                            onMouseLeave={e=>{ e.currentTarget.style.background="transparent"; }}>
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => setDeleteId(t.id)}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
+                            style={{ color:"#ef4444" }}
+                            onMouseEnter={e=>{ e.currentTarget.style.background="rgba(239,68,68,.12)"; }}
+                            onMouseLeave={e=>{ e.currentTarget.style.background="transparent"; }}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+
+              {/* ── Footer / إجمالي — الحركة أقصى الشمال، والأرقام جنب "الإجمالي" ── */}
+              {filtered.length > 0 && (
+                <tfoot>
+                  <tr style={{ borderTop:"2px solid var(--card-border)", background:"rgba(128,128,128,.05)" }}>
+                    <td colSpan={3}
+                      style={{ padding:"12px 16px", fontSize:14, fontWeight:700, textAlign:"right", color:"var(--foreground)" }}>
+                      الإجمالي
+                    </td>
+                    <td colSpan={3} style={{ padding:"12px 16px" }}>
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:14, flexWrap:"wrap" }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+                          {totalRevenue > 0 && totalExpenses === 0 && (
+                            <span style={{ fontWeight:800, fontSize:15, color:"#10b981", whiteSpace:"nowrap" }}>
+                              + {formatCurrency(totalRevenue)}
+                            </span>
+                          )}
+                          {totalExpenses > 0 && totalRevenue === 0 && (
+                            <span style={{ fontWeight:800, fontSize:15, color:"#ef4444", whiteSpace:"nowrap" }}>
+                              − {formatCurrency(totalExpenses)}
+                            </span>
+                          )}
+                          {totalRevenue > 0 && totalExpenses > 0 && (
+                            <>
+                              <span style={{ color:"#10b981", fontSize:12, fontWeight:700, whiteSpace:"nowrap" }}>+ {formatCurrency(totalRevenue)}</span>
+                              <span style={{ color:"#ef4444", fontSize:12, fontWeight:700, whiteSpace:"nowrap" }}>− {formatCurrency(totalExpenses)}</span>
+                              <span style={{ color: net>=0?"#6366f1":"#f59e0b", fontWeight:800, fontSize:15, whiteSpace:"nowrap" }}>
+                                = {net>=0?"+":""}{formatCurrency(net)}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        <span style={{ fontSize:11, color:"var(--muted)", whiteSpace:"nowrap" }}>
+                          {filtered.length} حركة
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
           </div>
         </div>
       )}
 
-      {/* ── Table ── */}
-      <div className="rounded-2xl border overflow-hidden shadow-sm"
-        style={{ background:"var(--card)", borderColor:"var(--card-border)" }}>
+      {/* ══ Add / Edit Transaction Modal ══ */}
+      <Modal open={showAdd || !!editItem} onClose={() => { setShowAdd(false); setEditItem(null); }}
+        title={editItem ? "تعديل الحركة" : "إضافة حركة مالية"}>
+        <form onSubmit={handleSaveTx} className="space-y-4">
 
-        {/* Table toolbar */}
-        <div className="flex items-center justify-between px-5 py-3 border-b"
-          style={{ borderColor:"var(--card-border)", background:"rgba(128,128,128,.04)" }}>
-          <span className="text-sm font-semibold" style={{ color:"var(--foreground)" }}>الحركات المالية</span>
-          <span className="text-xs px-2.5 py-1 rounded-full"
-            style={{ background:"rgba(128,128,128,.1)", color:"var(--muted)" }}>
-            {filtered.length} / {transactions.length}
-          </span>
-        </div>
+          {/* 0. مصروف / إيداع toggle — للإضافة فقط — لون محايد موحّد */}
+          {!editItem && (
+            <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl border" style={{ background:"rgba(128,128,128,.04)", borderColor:"var(--card-border)" }}>
+              {([TransactionType.Expense, TransactionType.Revenue] as TransactionType[]).map(t => {
+                const isSelected = txForm.type === t;
+                const isRev = t === TransactionType.Revenue;
+                return (
+                  <button key={t} type="button"
+                    onClick={() => setTxForm(p => ({ ...p, type:t, categoryId:"" }))}
+                    className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all"
+                    style={isSelected
+                      ? { background:"linear-gradient(135deg,#6366f1,#7c3aed)", color:"#fff", boxShadow:"0 3px 12px rgba(99,102,241,.3)" }
+                      : { background:"transparent", color:"var(--muted)" }
+                    }>
+                    {isRev ? "إيداع" : "مصروف"}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr style={{ borderBottom:`1px solid var(--card-border)` }}>
-                {["النوع","البيان","التصنيف","الوحدة","المبلغ","التاريخ",""].map(h => (
-                  <th key={h} className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide whitespace-nowrap"
-                    style={{ color:"var(--muted)", background:"rgba(128,128,128,.04)" }}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-16 text-center">
-                    <div className="flex flex-col items-center gap-2">
-                      <Search className="w-10 h-10 opacity-20" style={{ color:"var(--muted)" }} />
-                      <p className="text-sm" style={{ color:"var(--muted)" }}>لا توجد نتائج</p>
-                      {hasFilter && (
-                        <button onClick={clear} className="text-xs text-indigo-500 hover:underline mt-1">مسح الفلاتر</button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ) : filtered.map((t) => (
-                <tr key={t.id}
-                  className="transition-colors"
-                  style={{ borderBottom:`1px solid var(--card-border)` }}
-                  onMouseEnter={e => e.currentTarget.style.background="rgba(128,128,128,.04)"}
-                  onMouseLeave={e => e.currentTarget.style.background="transparent"}
-                >
-                  {/* Type */}
-                  <td className="px-4 py-3.5">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-lg"
-                        style={{ background: t.type==="إيداع"?"rgba(16,185,129,.12)":"rgba(239,68,68,.12)" }}>
-                        {t.type==="إيداع"
-                          ? <ArrowUpCircle   className="w-3.5 h-3.5" style={{ color:"#10b981" }} />
-                          : <ArrowDownCircle className="w-3.5 h-3.5" style={{ color:"#ef4444" }} />
-                        }
-                      </div>
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                        style={{
-                          background: t.type==="إيداع"?"rgba(16,185,129,.12)":"rgba(239,68,68,.12)",
-                          color:      t.type==="إيداع"?"#10b981":"#ef4444",
-                        }}>
-                        {t.type}
-                      </span>
-                    </div>
-                  </td>
-
-                  {/* Description */}
-                  <td className="px-4 py-3.5 font-medium max-w-xs" style={{ color:"var(--foreground)" }}>
-                    {t.description}
-                  </td>
-
-                  {/* Category */}
-                  <td className="px-4 py-3.5">
-                    <span className="text-xs px-2 py-0.5 rounded-full"
-                      style={{ background:"rgba(99,102,241,.1)", color:"#818cf8" }}>
-                      {t.category}
-                    </span>
-                  </td>
-
-                  {/* Unit */}
-                  <td className="px-4 py-3.5 text-xs">
-                    {t.unit
-                      ? <span className="px-2 py-0.5 rounded-lg" style={{ background:"rgba(128,128,128,.1)", color:"var(--muted)" }}>{t.unit}</span>
-                      : <span style={{ color:"var(--muted)" }}>—</span>
-                    }
-                  </td>
-
-                  {/* Amount */}
-                  <td className="px-4 py-3.5 font-bold tabular-nums"
-                    style={{ color: t.type==="إيداع"?"#10b981":"#ef4444" }}>
-                    {t.type==="إيداع" ? "+" : "−"}{formatCurrency(t.amount)}
-                  </td>
-
-                  {/* Date */}
-                  <td className="px-4 py-3.5 text-xs whitespace-nowrap" style={{ color:"var(--muted)" }}>
-                    {formatDate(t.date)}
-                  </td>
-
-                  {/* Actions */}
-                  <td className="px-3 py-3.5">
-                    <div className="flex items-center gap-1 justify-end">
-                      <button
-                        onClick={() => openEdit(t)}
-                        title="تعديل"
-                        className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
-                        style={{ color:"#6366f1" }}
-                        onMouseEnter={e => e.currentTarget.style.background="rgba(99,102,241,.12)"}
-                        onMouseLeave={e => e.currentTarget.style.background="transparent"}
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(t.id)}
-                        title="حذف"
-                        className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
-                        style={{ color:"#ef4444" }}
-                        onMouseEnter={e => e.currentTarget.style.background="rgba(239,68,68,.12)"}
-                        onMouseLeave={e => e.currentTarget.style.background="transparent"}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-
-            {/* Footer totals */}
-            {filtered.length > 1 && (
-              <tfoot>
-                <tr style={{ borderTop:`2px solid var(--card-border)`, background:"rgba(128,128,128,.04)" }}>
-                  <td colSpan={5} className="px-4 py-3 text-xs font-semibold" style={{ color:"var(--muted)" }}>
-                    الإجمالي ({filtered.length} حركة)
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-xs font-bold" style={{ color:"#10b981" }}>+{formatCurrency(fIn)}</span>
-                      <span className="text-xs font-bold" style={{ color:"#ef4444" }}>−{formatCurrency(fOut)}</span>
-                    </div>
-                  </td>
-                  <td />
-                </tr>
-              </tfoot>
+          {/* 1. التصنيف — لون محايد واحد بدل الأحمر/الأخضر */}
+          <div>
+            <label className="block text-xs font-bold mb-2" style={{ color:"var(--muted)" }}>
+              التصنيف <span className="text-red-400">*</span>
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {categories
+                .filter(c => editItem ? true : c.type === txForm.type)
+                .map(c => {
+                  const isSelected = txForm.categoryId === String(c.id);
+                  return (
+                    <button key={c.id} type="button"
+                      onClick={() => setTxForm(p => ({ ...p, categoryId: String(c.id) }))}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border-2 text-right transition-all"
+                      style={isSelected
+                        ? { borderColor: NEUTRAL_ACCENT, background: NEUTRAL_ACCENT_BG, color: NEUTRAL_ACCENT }
+                        : { borderColor:"var(--card-border)", background:"transparent", color:"var(--muted)" }
+                      }>
+                      <span className="w-2 h-2 rounded-full shrink-0"
+                        style={{ background: isSelected ? NEUTRAL_ACCENT : "var(--card-border)" }} />
+                      {c.name}
+                    </button>
+                  );
+                })}
+            </div>
+            {categories.filter(c => editItem ? true : c.type === txForm.type).length === 0 && (
+              <p className="text-xs mt-1.5 px-1" style={{ color:"#ef4444" }}>
+                لا توجد تصنيفات لهذا النوع — أضف تصنيف أولاً
+              </p>
             )}
-          </table>
-        </div>
-      </div>
-
-      {/* ── Add Modal ── */}
-      <Modal open={showAdd} onClose={() => { setShowAdd(false); setEditId(null); }} title={editId ? "تعديل الحركة" : "إضافة حركة مالية"}>
-        <form onSubmit={handleAdd} className="space-y-4">
-          {/* Type toggle */}
-          <div className="grid grid-cols-2 gap-2">
-            {(["صرف","إيداع"] as TxType[]).map((t) => (
-              <button key={t} type="button" onClick={() => setForm(p => ({ ...p, type:t }))}
-                className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all border-2"
-                style={form.type===t
-                  ? t==="صرف"
-                    ? { borderColor:"#ef4444", background:"rgba(239,68,68,.1)", color:"#ef4444" }
-                    : { borderColor:"#10b981", background:"rgba(16,185,129,.1)", color:"#10b981" }
-                  : { borderColor:"var(--card-border)", background:"transparent", color:"var(--muted)" }
-                }>
-                {t==="صرف"
-                  ? <><ArrowDownCircle className="w-4 h-4" /> صرف</>
-                  : <><ArrowUpCircle   className="w-4 h-4" /> إيداع</>
-                }
-              </button>
-            ))}
           </div>
 
-          {/* Fields */}
-          <Field label="البيان" required>
-            <input type="text" required value={form.description}
-              onChange={e => setForm(p => ({ ...p, description:e.target.value }))}
-              className={inputCls("")}
-              style={{ background:"var(--input-bg)", borderColor:"var(--input-border)", color:"var(--foreground)" }}
+          {/* 2. الوصف */}
+          <div>
+            <label className="block text-xs font-bold mb-1.5" style={{ color:"var(--muted)" }}>
+              البند / الوصف
+            </label>
+            <input
+              type="text"
+              value={txForm.description}
+              onChange={e => setTxForm(p => ({ ...p, description: e.target.value }))}
+              placeholder="مثال: صيانة المصعد، إيجار الطابق الأرضي..."
+              className={ic} style={iStyle()}
             />
-          </Field>
-          <Field label="المبلغ (جنيه)" required>
-            <input type="number" required value={form.amount}
-              onChange={e => setForm(p => ({ ...p, amount:e.target.value }))}
-              className={inputCls("")}
-              style={{ background:"var(--input-bg)", borderColor:"var(--input-border)", color:"var(--foreground)" }}
+          </div>
+
+          {/* 3. التاريخ + المبلغ — المبلغ بلون محايد بدل الأحمر/الأخضر */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold mb-1.5" style={{ color:"var(--muted)" }}>
+                التاريخ <span className="text-red-400">*</span>
+              </label>
+              <input type="date" required value={txForm.date}
+                onChange={e => setTxForm(p => ({ ...p, date: e.target.value }))}
+                className={ic} style={iStyle()} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold mb-1.5" style={{ color:"var(--muted)" }}>
+                المبلغ (ج.م) <span className="text-red-400">*</span>
+              </label>
+              <input type="number" min={0} step="0.01" required
+                value={txForm.amount}
+                onChange={e => setTxForm(p => ({ ...p, amount: e.target.value }))}
+                placeholder="0.00"
+                className={ic}
+                style={{ ...iStyle(), fontWeight:700 }}
+              />
+            </div>
+          </div>
+
+          {/* 4. ملاحظات */}
+          <div>
+            <label className="block text-xs font-bold mb-1.5" style={{ color:"var(--muted)" }}>
+              ملاحظات
+            </label>
+            <textarea
+              value={txForm.notes}
+              onChange={e => setTxForm(p => ({ ...p, notes: e.target.value }))}
+              placeholder="أي ملاحظات إضافية..."
+              rows={2}
+              className={ic} style={{ ...iStyle(), resize:"vertical" }}
             />
-          </Field>
-          <Field label="التاريخ" required>
-            <input type="date" required value={form.date}
-              onChange={e => setForm(p => ({ ...p, date:e.target.value }))}
-              className={inputCls("")}
-              style={{ background:"var(--input-bg)", borderColor:"var(--input-border)", color:"var(--foreground)" }}
-            />
-          </Field>
-          <Field label="الوحدة">
-            <input type="text" value={form.unit}
-              onChange={e => setForm(p => ({ ...p, unit:e.target.value }))}
-              className={inputCls("")}
-              style={{ background:"var(--input-bg)", borderColor:"var(--input-border)", color:"var(--foreground)" }}
-            />
-          </Field>
-          <Field label="التصنيف">
-            <select value={form.category} onChange={e => setForm(p => ({ ...p, category:e.target.value }))}
-              className={inputCls("w-full")}
-              style={{ background:"var(--input-bg)", borderColor:"var(--input-border)", color:"var(--foreground)" }}>
-              {CATS.filter(c => c!=="الكل").map(c => <option key={c}>{c}</option>)}
-            </select>
-          </Field>
+          </div>
+
+          {formErr && (
+            <p className="text-xs p-2.5 rounded-lg"
+              style={{ background:"rgba(239,68,68,.1)", color:"#ef4444" }}>
+              {formErr}
+            </p>
+          )}
 
           <div className="flex gap-2 pt-1">
-            <button type="submit"
-              className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white"
-              style={{ background:"linear-gradient(135deg,#6366f1,#7c3aed)" }}>
-              {editId ? "حفظ التعديل" : "إضافة"}
+            <button type="submit" disabled={saving || !txForm.categoryId}
+              className="flex-1 py-3 rounded-xl text-sm font-bold text-white disabled:opacity-50 transition-all"
+              style={{ background: !txForm.categoryId
+                ? "rgba(128,128,128,.3)"
+                : "linear-gradient(135deg,#6366f1,#7c3aed)",
+                boxShadow: !txForm.categoryId ? "none" : "0 3px 12px rgba(99,102,241,.3)" }}>
+              {saving ? "جاري الحفظ..." : editItem ? "حفظ التعديل" : "إضافة"}
             </button>
-            <button type="button" onClick={() => { setShowAdd(false); setEditId(null); }}
-              className="flex-1 py-2.5 rounded-xl text-sm font-medium border transition-colors"
-              style={{ background:"var(--card)", borderColor:"var(--card-border)", color:"var(--foreground)" }}>
+            <button type="button"
+              onClick={() => { setShowAdd(false); setEditItem(null); }}
+              className="flex-1 py-3 rounded-xl text-sm font-medium border transition-colors"
+              style={cStyle()}>
               إلغاء
             </button>
           </div>
         </form>
       </Modal>
+
+      {/* ══ Add Category Modal ══ */}
+      <Modal open={showAddCat} onClose={() => setShowAddCat(false)} title="إضافة تصنيف مالي" size="sm">
+        <form onSubmit={handleAddCat} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold mb-1.5" style={{ color:"var(--muted)" }}>
+              اسم التصنيف <span className="text-red-400">*</span>
+            </label>
+            <input type="text" required value={catForm.name}
+              onChange={e => setCatForm(p => ({ ...p, name:e.target.value }))}
+              placeholder="مثال: مصروفات عموميات، إيرادات أحمد..."
+              className={ic} style={iStyle()} />
+          </div>
+          <div>
+            <label className="block text-xs font-bold mb-2" style={{ color:"var(--muted)" }}>النوع</label>
+            <div className="grid grid-cols-2 gap-2">
+              {([TransactionType.Expense, TransactionType.Revenue] as TransactionType[]).map(t => (
+                <button key={t} type="button"
+                  onClick={() => setCatForm(p => ({ ...p, type:t }))}
+                  className="py-2.5 rounded-xl text-sm font-semibold border-2 transition-all"
+                  style={catForm.type === t
+                    ? t === TransactionType.Revenue
+                      ? { borderColor:"#10b981", background:"rgba(16,185,129,.1)", color:"#10b981" }
+                      : { borderColor:"#ef4444", background:"rgba(239,68,68,.1)",  color:"#ef4444" }
+                    : { borderColor:"var(--card-border)", background:"transparent", color:"var(--muted)" }}>
+                  {t === TransactionType.Revenue ? "إيداع" : "مصروف"}
+                </button>
+              ))}
+            </div>
+          </div>
+          {formErr && (
+            <p className="text-xs p-2.5 rounded-lg"
+              style={{ background:"rgba(239,68,68,.1)", color:"#ef4444" }}>
+              {formErr}
+            </p>
+          )}
+          <div className="flex gap-2 pt-1">
+            <button type="submit" disabled={saving}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-60"
+              style={{ background:"linear-gradient(135deg,#6366f1,#7c3aed)" }}>
+              {saving ? "جاري..." : "إضافة التصنيف"}
+            </button>
+            <button type="button" onClick={() => setShowAddCat(false)}
+              className="flex-1 py-2.5 rounded-xl text-sm font-medium border"
+              style={cStyle()}>
+              إلغاء
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ══ Delete ══ */}
+      <Modal open={!!deleteId} onClose={() => setDeleteId(null)} title="تأكيد الحذف" size="sm">
+        <p className="text-sm mb-5" style={{ color:"var(--muted)" }}>هل أنت متأكد من حذف هذه الحركة؟</p>
+        <div className="flex gap-2">
+          <button onClick={handleDelete} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ background:"#ef4444" }}>حذف</button>
+          <button onClick={() => setDeleteId(null)} className="flex-1 py-2.5 rounded-xl text-sm font-medium border" style={cStyle()}>إلغاء</button>
+        </div>
+      </Modal>
+
     </DashboardShell>
   );
 }

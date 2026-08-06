@@ -15,6 +15,7 @@ const LABELS: Record<string, string> = {
   contracts:          "العقود",
   finance:            "الماليه",
   expenses:           "المصاريف",
+  audits:             "الجرد",
   analysis:           "التحليلات",
   reports:            "التقارير",
   edit:               "تعديل",

@@ -200,7 +200,7 @@ export default function AdminOwnershipsPage() {
           {[
             { label:"إجمالي الملكيات",  value:totalOwnerships,  icon:Percent,   clr:"#6366f1", bg:"rgba(99,102,241,.1)",   border:"rgba(99,102,241,.2)"  },
             { label:"مساهمين مشتركين",  value:uniqueShareholders,icon:Users,    clr:"#7c3aed", bg:"rgba(124,58,237,.1)",   border:"rgba(124,58,237,.2)"  },
-            { label:"شقق مملوكة",        value:uniqueApartments,  icon:Home,     clr:"#0ea5e9", bg:"rgba(14,165,233,.1)",   border:"rgba(14,165,233,.2)"  },
+            { label:"شقق بها ملكية",        value:uniqueApartments,  icon:Home,     clr:"#0ea5e9", bg:"rgba(14,165,233,.1)",   border:"rgba(14,165,233,.2)"  },
             { label:"متوسط نسبة الملكية",value:`${avgPct}%`,     icon:Building2,clr:"#10b981", bg:"rgba(16,185,129,.1)",   border:"rgba(16,185,129,.2)"  },
           ].map(({ label, value, icon:Icon, clr, bg, border }) => (
             <div key={label} className="rounded-2xl p-4 flex items-center gap-3 hover:-translate-y-0.5 transition-all"
