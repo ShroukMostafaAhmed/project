@@ -231,8 +231,8 @@ export interface UpdateApartmentOwnershipDto {
 // ─── Financial ────────────────────────────────────────────────────────────────
 
 export enum TransactionType {
+  Expense = 0,
   Revenue = 1,
-  Expense = 2,
 }
 
 export enum PaymentMethod {
@@ -242,8 +242,8 @@ export enum PaymentMethod {
 }
 
 export const TransactionTypeLabels: Record<TransactionType, string> = {
-  [TransactionType.Revenue]: "إيراد",
   [TransactionType.Expense]: "مصروف",
+  [TransactionType.Revenue]: "إيراد",
 };
 
 export const PaymentMethodLabels: Record<PaymentMethod, string> = {
@@ -273,46 +273,60 @@ export interface UpdateFinancialCategoryDto {
 }
 
 export interface FinancialTransactionDto {
-  id:            number;
-  categoryId:    number;
-  categoryName?: string | null;
-  type:          TransactionType;
-  amount:        number;
-  description?:  string | null;
-  date:          string;
-  notes:         string | null;
-  auditNo?:      number | null;
-  paymentMethod?: PaymentMethod | null;
-  unitId?:       number | null;
-  unitName?:     string | null;
+  id:                    number;
+  categoryId:            number;
+  categoryName?:         string | null;
+  type?:                 TransactionType;
+  transactionType?:      TransactionType;
+  amount:                number;
+  description?:          string | null;
+  date?:                 string | null;
+  transactionDate?:      string | null;
+  notes?:                string | null;
+  auditNo?:              number | null;
+  auditNu?:              number | null;
+  paymentMethod?:        PaymentMethod | null;
+  paidToOrReceivedFrom?: string | null;
+  referenceNumber?:      string | null;
+  unitId?:               number | null;
+  unitName?:             string | null;
 }
 
 export interface CreateFinancialTransactionDto {
-  categoryId:     number;
-  type:           TransactionType;
-  amount:         number;
-  description?:   string | null;
-  date:           string;
-  notes:   string | null;
-  auditNo?:       number | null;
-  paymentMethod?: PaymentMethod | null;
-  unitId?:        number | null;
+  categoryId:             number;
+  transactionType:        TransactionType;   // اسم الحقل الصح في الـ API
+  type?:                  TransactionType;   // fallback للتوافق
+  amount:                 number;
+  description?:           string | null;
+  transactionDate:        string;            // اسم الحقل الصح في الـ API
+  date?:                  string;            // fallback للتوافق
+  notes?:                 string | null;
+  auditNo?:               number | null;
+  paymentMethod?:         PaymentMethod | null;
+  paidToOrReceivedFrom?:  string | null;
+  referenceNumber?:       string | null;
+  unitId?:                number | null;
 }
 
 export interface UpdateFinancialTransactionDto {
-  categoryId?:    number;
-  amount?:        number;
-  description?:   string | null;
-  date?:          string;
-  notes:   string | null;
-  paymentMethod?: PaymentMethod | null;
+  categoryId?:            number;
+  amount?:                number;
+  description?:           string | null;
+  date?:                  string;
+  notes?:                 string | null;
+  paymentMethod?:         PaymentMethod | null;
+  paidToOrReceivedFrom?:  string | null;
+  referenceNumber?:       string | null;
 }
 
 export interface FinancialSummaryDto {
-  totalRevenue:  number;
-  totalExpenses: number;
-  netProfit:     number;
-  auditNo?:      number | null;
+  totalRevenues?:          number;    // اسم الـ API الفعلي
+  totalRevenue?:           number;    // fallback (اسم قديم)
+  totalExpenses:           number;
+  netBalance?:             number;    // اسم الـ API الفعلي
+  netProfit?:              number;    // fallback (اسم قديم)
+  auditNo?:                number | null;
+  totalTransactionsCount?: number;
 }
 
 export interface ShareholderContractDto {

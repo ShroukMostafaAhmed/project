@@ -111,14 +111,18 @@ export default function AdminAuditsPage() {
       const sum = await api.financialTransactions.summary({ fromDate: form.fromDate, toDate: form.toDate });
       // الرصيد الافتتاحي: يدوي بس لو ده أول جرد، وإلا بياخد من رصيد آخر جرد تلقائي (مش قابل للتعديل)
       const opening = lastAudit ? lastAudit.closingBalance : (parseFloat(form.openingBalance) || 0);
+      // API يرجع totalRevenues (بـ s) و netBalance — مش totalRevenue / netProfit
+      const rev = sum.totalRevenues ?? sum.totalRevenue ?? 0;
+      const exp = sum.totalExpenses ?? 0;
+      const net = sum.netBalance    ?? sum.netProfit    ?? (rev - exp);
       setPreview({
-        fromDate: form.fromDate,
-        toDate: form.toDate,
+        fromDate:       form.fromDate,
+        toDate:         form.toDate,
         openingBalance: opening,
-        totalRevenue: sum.totalRevenue,
-        totalExpenses: sum.totalExpenses,
-        netResult: sum.netProfit,
-        closingBalance: opening + sum.netProfit,
+        totalRevenue:   rev,
+        totalExpenses:  exp,
+        netResult:      net,
+        closingBalance: opening + net,
       });
     } catch (err) { setFormErr((err as Error).message); }
     finally { setPreviewLoading(false); }

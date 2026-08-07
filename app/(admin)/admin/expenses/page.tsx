@@ -31,6 +31,20 @@ const ic = "w-full px-3.5 py-2.5 rounded-xl text-sm border focus:outline-none tr
 const NEUTRAL_ACCENT = "#6366f1";
 const NEUTRAL_ACCENT_BG = "rgba(99,102,241,.08)";
 
+/**
+ * normalizeType — يحوّل أي قيمة جاية من الـ API (رقم أو string) لـ TransactionType صح.
+ * الباك بيرجع 0/1 كـ numbers لكن أحياناً بيجي كـ string أو بشكل مختلف.
+ */
+function normalizeType(raw: unknown): TransactionType {
+  if (raw === TransactionType.Revenue) return TransactionType.Revenue;
+  if (raw === TransactionType.Expense) return TransactionType.Expense;
+  const s = String(raw).toLowerCase().trim();
+  if (s === "1" || s.includes("rev") || s.includes("إيراد") || s.includes("ايراد")) {
+    return TransactionType.Revenue;
+  }
+  return TransactionType.Expense;
+}
+
 const EMPTY = {
   categoryId:"", amount:"", description:"", notes:"",
   date: new Date().toISOString().split("T")[0],
@@ -66,13 +80,12 @@ export default function AdminExpensesPage() {
   const [txForm,     setTxForm]     = useState({ ...EMPTY, type: TransactionType.Expense as TransactionType });
   const [catForm,    setCatForm]    = useState({ name:"", type: TransactionType.Expense as TransactionType, description:"" });
 
-  /* ── load categories first ── */
+  /* ── load categories ── */
   const loadCategories = useCallback(async () => {
     try {
       const data = await api.financialCategories.list();
       const cats = Array.isArray(data) ? data : [];
       setCategories(cats);
-      // auto-select first category if none selected
       if (activeCatId === null && cats.length > 0) {
         setActiveCatId(cats[0].id);
       }
@@ -80,6 +93,25 @@ export default function AdminExpensesPage() {
   }, [activeCatId]);
 
   useEffect(() => { loadCategories(); }, []); // eslint-disable-line
+
+  // Reload categories when opening add modal to ensure they're fresh
+  async function openAdd() {
+    // load fresh categories before opening
+    const data = await api.financialCategories.list().catch(() => [] as FinancialCategoryDto[]);
+    const cats = Array.isArray(data) ? (data as FinancialCategoryDto[]) : [] as FinancialCategoryDto[];
+    if (cats.length > 0) setCategories(cats);
+
+    // resolve active category type from fresh data (avoids stale state bug)
+    const currentCat = activeCatId !== "all" && activeCatId !== null
+      ? cats.find(c => c.id === activeCatId) ?? null
+      : null;
+    const defaultType = currentCat ? normalizeType(currentCat.type) : TransactionType.Expense;
+    const defaultCatId = activeCatId && activeCatId !== "all" ? String(activeCatId) : "";
+
+    setTxForm({ ...EMPTY, type: defaultType, categoryId: defaultCatId });
+    setFormErr("");
+    setShowAdd(true);
+  }
 
   /* ── load transactions for selected category ── */
   const loadTransactions = useCallback(async () => {
@@ -113,18 +145,23 @@ export default function AdminExpensesPage() {
       !q ||
       (t.description  ?? "").toLowerCase().includes(q) ||
       (t.categoryName ?? "").toLowerCase().includes(q) ||
-      String(t.auditNo ?? "").includes(q)
+      String(t.auditNo ?? t.auditNu ?? "").includes(q)
     );
   }, [transactions, search]);
 
   /* ── Summary computed from filtered rows (accurate per category+date) ── */
-  const totalRevenue  = filtered.filter(t=>t.type===TransactionType.Revenue).reduce((s,t)=>s+t.amount,0);
-  const totalExpenses = filtered.filter(t=>t.type===TransactionType.Expense).reduce((s,t)=>s+t.amount,0);
+  // normalizeType handles raw API values (number OR string) → safe TransactionType
+  const getType = (t: FinancialTransactionDto): TransactionType =>
+    normalizeType(t.transactionType ?? t.type ?? TransactionType.Expense);
+
+  const totalRevenue  = filtered.filter(t=>getType(t)===TransactionType.Revenue).reduce((s,t)=>s+t.amount,0);
+  const totalExpenses = filtered.filter(t=>getType(t)===TransactionType.Expense).reduce((s,t)=>s+t.amount,0);
   const net           = totalRevenue - totalExpenses;
 
   /* ── active category meta ── */
   const activeCat = activeCatId === "all" ? null : categories.find(c => c.id === activeCatId);
-  const catType   = activeCat?.type ?? null;
+  // normalizeType here guarantees catType is always a proper TransactionType enum value
+  const catType   = activeCat ? normalizeType(activeCat.type) : null;
   const accent    = catType === TransactionType.Revenue ? "#10b981"
                   : catType === TransactionType.Expense ? "#ef4444"
                   : "#6366f1";
@@ -147,12 +184,14 @@ export default function AdminExpensesPage() {
         setEditItem(null);
       } else {
         await api.financialTransactions.create({
-          categoryId:  parseInt(txForm.categoryId),
-          type:        txForm.type,
-          amount:      parseFloat(txForm.amount),
-          description: txForm.description || null,
-          notes:       txForm.notes || null,
-          date:        txForm.date,
+          categoryId:       parseInt(txForm.categoryId),
+          transactionType:  txForm.type,   // اسم الحقل الصح للـ API
+          type:             txForm.type,   // fallback للتوافق
+          amount:           parseFloat(txForm.amount),
+          description:      txForm.description || null,
+          notes:            txForm.notes || null,
+          transactionDate:  txForm.date,   // اسم الحقل الصح للـ API
+          date:             txForm.date,   // fallback للتوافق
         });
         setShowAdd(false);
       }
@@ -182,13 +221,15 @@ export default function AdminExpensesPage() {
 
   function openEdit(t: FinancialTransactionDto) {
     setEditItem(t);
+    const txType  = normalizeType(t.transactionType ?? t.type ?? TransactionType.Expense);
+    const rawDate = t.transactionDate ?? t.date ?? "";
     setTxForm({
-      type: t.type,
+      type:        txType,
       categoryId:  String(t.categoryId),
       amount:      String(t.amount),
       description: t.description ?? "",
-      notes:       (t as {notes?:string}).notes ?? "",
-      date:        t.date ? t.date.split("T")[0] : "",
+      notes:       t.notes ?? "",
+      date:        rawDate && !rawDate.startsWith("0001") ? rawDate.split("T")[0] : "",
     });
     setFormErr("");
   }
@@ -209,7 +250,7 @@ export default function AdminExpensesPage() {
               <Tag className="w-4 h-4" style={{ color:"var(--muted)" }} />
               تصنيف جديد
             </button>
-            <button onClick={() => { setShowAdd(true); setTxForm({ ...EMPTY, type: catType ?? TransactionType.Expense, categoryId: activeCatId && activeCatId !== "all" ? String(activeCatId) : "" }); setFormErr(""); }}
+            <button onClick={openAdd}
               className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl text-white"
               style={{ background:"linear-gradient(135deg,#6366f1,#7c3aed)", boxShadow:"0 3px 12px rgba(99,102,241,.3)" }}>
               <Plus className="w-4 h-4" /> إضافة حركة
@@ -363,8 +404,10 @@ export default function AdminExpensesPage() {
                     لا توجد حركات{(dateFrom||dateTo) && " في هذه الفترة"}
                   </td></tr>
                 ) : filtered.map((t,i) => {
-                  // parse date safely
-                  const rawDate = t.date;
+                  // normalizeType ensures correct comparison regardless of API response shape
+                  const txType  = normalizeType(t.transactionType ?? t.type ?? TransactionType.Expense);
+                  const isRev   = txType === TransactionType.Revenue;
+                  const rawDate = t.transactionDate ?? t.date ?? "";
                   const dateStr = rawDate && !rawDate.startsWith("0001")
                     ? formatDate(rawDate) : "—";
 
@@ -396,10 +439,10 @@ export default function AdminExpensesPage() {
                         )}
                       </td>
 
-                      {/* المبلغ — +/- بلون واحد للتمييز */}
+                      {/* المبلغ — +/- بلون واضح: أخضر للإيراد، أحمر للمصروف */}
                       <td style={{ padding:"12px", fontWeight:700, fontSize:13, whiteSpace:"nowrap",
-                        }}>
-                      {formatCurrency(t.amount)}
+                          color: isRev ? "#10b981" : "#ef4444" }}>
+                        {isRev ? "+ " : "− "}{formatCurrency(t.amount)}
                       </td>
 
                       {/* ملاحظات */}
@@ -508,7 +551,7 @@ export default function AdminExpensesPage() {
             </label>
             <div className="grid grid-cols-2 gap-2">
               {categories
-                .filter(c => editItem ? true : c.type === txForm.type)
+                .filter(c => editItem ? true : normalizeType(c.type) === txForm.type)
                 .map(c => {
                   const isSelected = txForm.categoryId === String(c.id);
                   return (
@@ -526,7 +569,7 @@ export default function AdminExpensesPage() {
                   );
                 })}
             </div>
-            {categories.filter(c => editItem ? true : c.type === txForm.type).length === 0 && (
+            {categories.filter(c => editItem ? true : normalizeType(c.type) === txForm.type).length === 0 && (
               <p className="text-xs mt-1.5 px-1" style={{ color:"#ef4444" }}>
                 لا توجد تصنيفات لهذا النوع — أضف تصنيف أولاً
               </p>
