@@ -42,7 +42,7 @@ function normalizeType(raw: unknown): TransactionType {
   if (s === "1" || s.includes("rev") || s.includes("إيراد") || s.includes("ايراد")) {
     return TransactionType.Revenue;
   }
-  return TransactionType.Expense;
+  return TransactionType.Expense; // 2 أو أي قيمة تانية = مصروف
 }
 
 const EMPTY = {

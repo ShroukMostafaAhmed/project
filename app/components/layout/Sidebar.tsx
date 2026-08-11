@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Users, Building2, Wallet,
-  Receipt, BarChart3, FileText, LogOut, Home, X, Key, KeyRound, BookOpen,
+  Receipt, BarChart3, FileText, LogOut, Home, X, Key, KeyRound,
 } from "lucide-react";
 import { cn } from "@/app/lib/utils";
 import { clearAuthUser, getAuthUser } from "@/app/lib/auth";
@@ -19,11 +19,9 @@ const adminNav: NavItem[] = [
   { href: "/admin/ownerships",       label: "الملكيات",       icon: KeyRound        },
   { href: "/admin/finance",          label: "الماليه",        icon: Wallet          },
   { href: "/admin/expenses",         label: "المصاريف",       icon: Receipt         },
-  { href: "/admin/audits",           label: "الجرد",          icon: BookOpen        },
   { href: "/admin/analysis",         label: "التحليلات",      icon: BarChart3       },
   { href: "/admin/reports",          label: "التقارير",       icon: FileText        },
   { href: "/admin/contracts",        label: "العقود",         icon: FileText        },
-
 ];
 
 const shareholderNav: NavItem[] = [

@@ -10,6 +10,9 @@ import {
   FinancialTransactionDto, CreateFinancialTransactionDto, UpdateFinancialTransactionDto,
   FinancialSummaryDto, TransactionType,
   FinancialAuditDto, CreateFinancialAuditDto,
+  FinanceDto, CreateFinanceDto, UpdateFinanceDto, FinanceType,
+  ProjectFinanceSummaryDto, ShareholderFinanceReportDto,
+  UnitAuditDto, CreateUnitAuditDto, UnitExpenseSummaryDto, UnitAuditStatus,
   LoginDto, LoginResponseDto,
 } from "./types";
 import {
@@ -122,6 +125,43 @@ let MOCK_AUDITS: FinancialAuditDto[] = [
     totalRevenue: 120_000, totalExpenses: 95_000,
     netResult: 25_000, closingBalance: 836_379,
     previousAuditId: 2, createdAt: "2026-09-01T10:00:00Z",
+  },
+];
+
+// ─── Mock unit audits (in-memory) ────────────────────────────────────────────
+// بيانات وهمية جاهزة لاختبار الشاشة — unitId=1 مثال (غيّره بـ unitId الحقيقي من الباك)
+// shareholderId 1 = أول مساهم, 2 = تاني مساهم (حسب ما بيرجع من /Finances/shareholders-report)
+let MOCK_UNIT_AUDITS: UnitAuditDto[] = [
+  {
+    id: 1001,
+    unitId: 1,
+    unitName: "وحدة 1",
+    name: "جرد 1",
+    fromDate: "2026-07-01",
+    toDate:   "2026-07-31",
+    status:   1,             // Closed ✓
+    totalExpenses: 120_000,
+    shareholderShares: [
+      { shareholderId: 1, shareholderName: "test",  sharePercentage: 50, shareAmount: 60_000 },
+      { shareholderId: 2, shareholderName: "ahmed", sharePercentage: 50, shareAmount: 60_000 },
+    ],
+    previousUnitAuditId: null,
+    closedAt:  "2026-08-01T02:00:00Z",
+    createdAt: "2026-07-01T00:00:00Z",
+  },
+  {
+    id: 1002,
+    unitId: 1,
+    unitName: "وحدة 1",
+    name: "جرد 2",
+    fromDate: "2026-08-01",
+    toDate:   "2026-08-31",
+    status:   0,             // Pending ⏳
+    totalExpenses: 45_000,   // حي — هيتغير مع المصاريف
+    shareholderShares: [],   // فاضي — هيتعبّى بعد القفل
+    previousUnitAuditId: 1001,
+    closedAt:  null,
+    createdAt: "2026-08-01T00:00:00Z",
   },
 ];
 
@@ -470,6 +510,135 @@ export const api = {
       () => { MOCK_AUDITS = MOCK_AUDITS.filter(a => a.id !== id); }
     ),
   },
+  // ─── Unit Audits (جرد الوحدة) — ⚠️ endpoints مطلوبة من الباك ──────────────
+  // بيستخدم withAlwaysFallback مؤقتاً لحد ما الباك يجهز
+  unitAudits: {
+    list: (unitId: number) => withAlwaysFallback(
+      () => request<UnitAuditDto[]>(`/Units/${unitId}/audits`),
+      () => {
+        const existing = MOCK_UNIT_AUDITS.filter(a => a.unitId === unitId);
+        if (existing.length) return existing;
+        // mock تلقائي لأي unitId — جردين: الأول مقفول، التاني pending
+        return [
+          {
+            id:        unitId * 1000 + 1,
+            unitId,
+            unitName:  `وحدة ${unitId}`,
+            name:      "جرد 1",
+            fromDate:  "2026-07-01",
+            toDate:    "2026-07-31",
+            status:    UnitAuditStatus.Closed,
+            totalExpenses: 120_000,
+            shareholderShares: [],
+            previousUnitAuditId: null,
+            closedAt:  "2026-08-01T02:00:00Z",
+            createdAt: "2026-07-01T00:00:00Z",
+          },
+          {
+            id:        unitId * 1000 + 2,
+            unitId,
+            unitName:  `وحدة ${unitId}`,
+            name:      "جرد 2",
+            fromDate:  "2026-08-01",
+            toDate:    "2026-08-31",
+            status:    UnitAuditStatus.Pending,
+            totalExpenses: 45_000,
+            shareholderShares: [],
+            previousUnitAuditId: unitId * 1000 + 1,
+            closedAt:  null,
+            createdAt: "2026-08-01T00:00:00Z",
+          },
+        ] as UnitAuditDto[];
+      }
+    ),
+    create: (unitId: number, data: CreateUnitAuditDto) => withAlwaysFallback(
+      () => request<UnitAuditDto>(`/Units/${unitId}/audits`, { method: "POST", body: JSON.stringify(data) }),
+      () => {
+        // تحقق mock: لو فيه جرد Pending للوحدة دي يرفض
+        const hasPending = MOCK_UNIT_AUDITS.some(a => a.unitId === unitId && a.status === 0);
+        if (hasPending) throw new Error("يوجد جرد منتظر بالفعل لهذه الوحدة — انتظر حتى يتقفل أولاً");
+        const next: UnitAuditDto = {
+          id:        Date.now(),
+          unitId,
+          unitName:  null,
+          name:      data.name,
+          fromDate:  data.fromDate,
+          toDate:    data.toDate,
+          status:    0, // Pending
+          totalExpenses: 0,
+          shareholderShares: [],
+          previousUnitAuditId: data.previousUnitAuditId ?? null,
+          closedAt:  null,
+          createdAt: new Date().toISOString(),
+        };
+        MOCK_UNIT_AUDITS = [...MOCK_UNIT_AUDITS, next];
+        return next;
+      }
+    ),
+    // معاينة حية لمصاريف الجرد الـ Pending
+    currentExpenses: (unitId: number) => withAlwaysFallback(
+      () => request<UnitExpenseSummaryDto>(`/Units/${unitId}/audits/current-expenses`),
+      async () => {
+        await delay(200);
+        const pending = MOCK_UNIT_AUDITS.find(a => a.unitId === unitId && a.status === 0);
+        return {
+          unitId,
+          fromDate: pending?.fromDate ?? "",
+          toDate:   pending?.toDate   ?? "",
+          totalExpenses: 0,
+          shareholderBreakdown: [],
+        } as UnitExpenseSummaryDto;
+      }
+    ),
+    // قفل يدوي (اختياري — الـ Scheduler هو الأساس)
+    close: (unitId: number, auditId: number) => withAlwaysFallback(
+      () => request<UnitAuditDto>(`/Units/${unitId}/audits/${auditId}/close`, { method: "POST" }),
+      () => {
+        MOCK_UNIT_AUDITS = MOCK_UNIT_AUDITS.map(a =>
+          a.id === auditId ? { ...a, status: 1, closedAt: new Date().toISOString() } : a
+        );
+        return MOCK_UNIT_AUDITS.find(a => a.id === auditId)!;
+      }
+    ),
+    // الـ expenseSummary القديم — deprecated، استخدم currentExpenses
+    expenseSummary: (unitId: number, fromDate: string, toDate: string) => withAlwaysFallback(
+      () => {
+        const q = new URLSearchParams({ fromDate, toDate });
+        return request<UnitExpenseSummaryDto>(`/Units/${unitId}/finances/summary?${q}`);
+      },
+      async () => {
+        await delay(200);
+        return { unitId, fromDate, toDate, totalExpenses: 0, shareholderBreakdown: [] } as UnitExpenseSummaryDto;
+      }
+    ),
+  },
+
+  // ─── Finances (ماليه الوحدات) ─────────────────────────────────────────────
+  finances: {
+    list: (params?: { unitId?: number; shareholderId?: number; type?: FinanceType }) => {
+      const q = new URLSearchParams();
+      if (params?.unitId        !== undefined) q.set("unitId",        String(params.unitId));
+      if (params?.shareholderId !== undefined) q.set("shareholderId", String(params.shareholderId));
+      if (params?.type          !== undefined) q.set("type",          String(params.type));
+      const qs = q.toString();
+      return request<FinanceDto[]>(`/Finances${qs ? "?" + qs : ""}`);
+    },
+    get: (id: number) =>
+      request<FinanceDto>(`/Finances/${id}`),
+    create: (data: CreateFinanceDto) =>
+      request<FinanceDto>("/Finances", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: number, data: UpdateFinanceDto) =>
+      request<FinanceDto>(`/Finances/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    delete: (id: number) =>
+      request<void>(`/Finances/${id}`, { method: "DELETE" }),
+    summaryByUnit: (unitId: number) =>
+      request<ProjectFinanceSummaryDto>(`/Finances/summary/unit/${unitId}`),
+    shareholdersReport: () =>
+      request<ShareholderFinanceReportDto[]>("/Finances/shareholders-report"),
+    shareholderReport: (shareholderId: number) =>
+      request<ShareholderFinanceReportDto>(`/Finances/shareholders-report/${shareholderId}`),
+  },
+
   // ─── ShareholderContracts ──────────────────────────────────────────────────
   contracts: {
     getAll: () =>

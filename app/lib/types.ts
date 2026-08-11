@@ -231,7 +231,7 @@ export interface UpdateApartmentOwnershipDto {
 // ─── Financial ────────────────────────────────────────────────────────────────
 
 export enum TransactionType {
-  Expense = 0,
+  Expense = 2,
   Revenue = 1,
 }
 
@@ -388,3 +388,146 @@ export interface FinancialAuditDto {
 }
 
 export type CreateFinancialAuditDto = Omit<FinancialAuditDto, "id" | "createdAt">;
+
+// ─── Finances (ماليه الوحدات) ─────────────────────────────────────────────────
+
+/** 1 = Expense (مصروف/دين), 2 = Payment (دفعة/سداد) */
+export enum FinanceType {
+  Expense = 1,
+  Payment = 2,
+}
+
+export const FinanceTypeLabels: Record<FinanceType, string> = {
+  [FinanceType.Expense]: "مديونية",
+  [FinanceType.Payment]: "دفعة",
+};
+
+export interface FinanceDto {
+  id:              number;
+  date:            string;
+  description:     string | null;
+  amount:          number;
+  type:            FinanceType;
+  typeName?:       string | null;
+  unitId:          number;
+  unitName?:       string | null;
+  unitCode?:       string | null;
+  shareholderId?:  number | null;
+  shareholderName?:string | null;
+  notes?:          string | null;
+  auditId?:        number | null;  // الجرد المرتبط
+  createdAt:       string;
+}
+
+export interface CreateFinanceDto {
+  date:           string;
+  description?:   string | null;
+  amount:         number;
+  type:           FinanceType;
+  unitId:         number;
+  shareholderId?: number | null;
+  notes?:         string | null;
+  auditId?:       number | null;   // الجرد اللي بيتسدد فيه (للدفعات)
+}
+
+export interface UpdateFinanceDto {
+  date?:          string;
+  description?:   string | null;
+  amount?:        number;
+  type?:          FinanceType;
+  unitId?:        number;
+  shareholderId?: number | null;
+  notes?:         string | null;
+}
+
+/** GET /api/Finances/summary/unit/{unitId} */
+export interface ProjectFinanceSummaryDto {
+  unitId:                number;
+  unitName?:             string | null;
+  unitCode?:             string | null;
+  totalBaseCosts:        number;
+  totalProjectExpenses:  number;
+  totalCost:             number;   // readOnly = baseCosts + projectExpenses
+  totalPaymentsReceived: number;
+  remainingBalance:      number;   // readOnly = totalCost - totalPaymentsReceived
+}
+
+/** GET /api/Finances/shareholders-report */
+export interface ShareholderUnitFinanceDetailDto {
+  unitId:               number;
+  unitName?:            string | null;
+  unitCode?:            string | null;
+  sharesCount:          number;
+  totalShares:          number;
+  sharePercentage:      number;
+  unitBaseCosts:        number;
+  unitProjectExpenses:  number;
+  totalUnitCost:        number;   // readOnly
+  owedAmount:           number;
+  paidAmount:           number;
+  debtAmount:           number;   // readOnly = owedAmount - paidAmount
+}
+
+export interface ShareholderFinanceReportDto {
+  shareholderId:    number;
+  shareholderName?: string | null;
+  nationalId?:      string | null;
+  units?:           ShareholderUnitFinanceDetailDto[] | null;
+  totalOwedAmount:  number;   // readOnly
+  totalPaidAmount:  number;   // readOnly
+  totalDebtAmount:  number;   // readOnly
+}
+
+// ─── Unit Audit (جرد الوحدة) ──────────────────────────────────────────────────
+
+/** 0 = Pending (منتظر — الفترة لسه شغالة), 1 = Closed (مقفول — الدين اتوزع) */
+export enum UnitAuditStatus {
+  Pending = 0,
+  Closed  = 1,
+}
+
+/** توزيع حصة كل مساهم في جرد الوحدة */
+export interface UnitAuditShareholderShare {
+  shareholderId:   number;
+  shareholderName: string | null;
+  sharePercentage: number;           // % في وقت الجرد
+  shareAmount:     number;           // المبلغ المستحق عليه
+}
+
+/** جرد وحدة واحدة */
+export interface UnitAuditDto {
+  id:                   number;
+  unitId:               number;
+  unitName?:            string | null;
+  name:                 string;
+  fromDate:             string;
+  toDate:               string;
+  status:               UnitAuditStatus;  // Pending=0, Closed=1
+  totalExpenses:        number;      // حي لو Pending، نهائي لو Closed
+  shareholderShares:    UnitAuditShareholderShare[];
+  previousUnitAuditId?: number | null;
+  closedAt?:            string | null;
+  createdAt:            string;
+}
+
+/** POST /api/Units/{unitId}/audits — إنشاء جرد جديد (فترة بس، بدون حساب) */
+export interface CreateUnitAuditDto {
+  name:                 string;
+  fromDate:             string;
+  toDate:               string;
+  previousUnitAuditId?: number | null;
+}
+
+/** GET /api/Units/{unitId}/audits/current-expenses — معاينة حية للجرد الـ Pending */
+export interface UnitExpenseSummaryDto {
+  unitId:        number;
+  fromDate:      string;
+  toDate:        string;
+  totalExpenses: number;
+  shareholderBreakdown: {
+    shareholderId:    number;
+    shareholderName:  string | null;
+    sharePercentage:  number;
+    shareAmount:      number;
+  }[];
+}
