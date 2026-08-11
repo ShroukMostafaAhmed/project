@@ -578,8 +578,7 @@ export const api = {
     // معاينة حية لمصاريف الجرد الـ Pending
     currentExpenses: (unitId: number) => withAlwaysFallback(
       () => request<UnitExpenseSummaryDto>(`/Units/${unitId}/audits/current-expenses`),
-      async () => {
-        await delay(200);
+      () => {
         const pending = MOCK_UNIT_AUDITS.find(a => a.unitId === unitId && a.status === 0);
         return {
           unitId,
@@ -606,10 +605,7 @@ export const api = {
         const q = new URLSearchParams({ fromDate, toDate });
         return request<UnitExpenseSummaryDto>(`/Units/${unitId}/finances/summary?${q}`);
       },
-      async () => {
-        await delay(200);
-        return { unitId, fromDate, toDate, totalExpenses: 0, shareholderBreakdown: [] } as UnitExpenseSummaryDto;
-      }
+      () => ({ unitId, fromDate, toDate, totalExpenses: 0, shareholderBreakdown: [] } as UnitExpenseSummaryDto)
     ),
   },
 
