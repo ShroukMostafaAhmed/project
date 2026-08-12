@@ -151,51 +151,8 @@ export default function ShareholderProjectDetailPage({ params }: { params: Promi
         )}
       </div>
 
-      {/* All Unit Apartments (read-only) */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
-        <div className="px-5 py-4 border-b border-slate-100">
-          <h3 className="font-semibold text-slate-800">
-            جميع شقق المشروع ({apartments.length})
-          </h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-100 text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                {["رقم الشقة", "الطابق", "الحالة", "ملكيتي"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-right font-semibold text-slate-600">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {apartments.map((apt) => {
-                const ownership = myOwnerships.find((o) => o.apartmentId === apt.id);
-                return (
-                  <tr key={apt.id} className={ownership ? "bg-indigo-50/50" : "hover:bg-slate-50"}>
-                    <td className="px-4 py-3 font-medium text-slate-800">
-                      {apt.apartmentNumber ?? "—"}
-                      {ownership && <span className="mr-2 text-xs text-indigo-500">← مملوكة</span>}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">{apt.floor ?? "—"}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${ApartmentStatusColors[apt.status]}`}>
-                        {ApartmentStatusLabels[apt.status]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {ownership ? (
-                        <span className="text-sm font-bold text-indigo-600">{ownership.ownershipPercentage}%</span>
-                      ) : (
-                        <span className="text-slate-300">—</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* مش محتاجه المساهم يشوف كل الشقق */}
+
     </DashboardShell>
   );
 }

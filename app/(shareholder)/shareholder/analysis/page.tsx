@@ -9,7 +9,7 @@ import { useOwnershipsByShareholder, useUnits, useApartments } from "@/app/lib/h
 import { getAuthUser } from "@/app/lib/auth";
 import { ApartmentStatus, ApartmentStatusLabels } from "@/app/lib/types";
 import {
-  PieChart, Pie, Legend, ResponsiveContainer, Tooltip,
+  PieChart, Pie, Cell, Legend, ResponsiveContainer, Tooltip,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   RadialBarChart, RadialBar,
 } from "recharts";
@@ -86,7 +86,7 @@ export default function ShareholderAnalysisPage() {
                   label={({ name, value }) => `${name} (${value})`} labelLine={false}
                 >
                   {unitGroups.map((_, i) => (
-                    <rect key={i} fill={COLORS[i % COLORS.length]} />
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} />
@@ -106,7 +106,7 @@ export default function ShareholderAnalysisPage() {
                   cx="50%" cy="50%" outerRadius={80} innerRadius={48} paddingAngle={3}
                 >
                   {statusDist.map((_, i) => (
-                    <rect key={i} fill={COLORS[i % COLORS.length]} />
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} />

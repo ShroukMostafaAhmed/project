@@ -326,7 +326,7 @@ export default function AdminFinancePage() {
       <PageHeader title="الماليه" subtitle="متابعة المديونيات والمدفوعات لكل وحدة ومساهم" />
 
       {/* ══ Tabs ══ */}
-      <div className="flex gap-1 p-1 rounded-2xl mb-5 w-fit" style={{ background: "var(--input-bg)", border: "1px solid var(--card-border)" }}>
+      <div className="flex gap-1 p-1 rounded-2xl mb-5 w-fit no-print" style={{ background: "var(--input-bg)", border: "1px solid var(--card-border)" }}>
         {tabs.map(t => {
           const Icon = t.icon;
           const isActive = activeTab === t.key;

@@ -157,19 +157,16 @@ export default function AdminReportsPage() {
       <PageHeader
         title="التقارير"
         subtitle="تقارير شاملة قابلة للبحث والطباعة"
-        actions={
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-xl shadow-sm shadow-indigo-200"
-          >
-            <Printer className="w-4 h-4" />
-            طباعة
-          </button>
-        }
       />
 
+      {/* Header للطباعة — مخفي في الشاشة */}
+      <div className="print-header hidden">
+        <h1>Top First House — تقارير النظام</h1>
+        <p>تاريخ الطباعة: {new Date().toLocaleDateString("ar-EG")} | تقرير {reportTabs.find(r => r.key === activeReport)?.label}</p>
+      </div>
+
       {/* Report tabs */}
-      <div className="flex flex-wrap gap-2 mb-5">
+      <div className="flex flex-wrap gap-2 mb-5 no-print">
         {reportTabs.map((t) => (
           <button
             key={t.key}
@@ -191,7 +188,7 @@ export default function AdminReportsPage() {
       </div>
 
       {/* Search + filters bar */}
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className="flex flex-wrap gap-2 mb-4 no-print">
         <div className="relative flex-1 min-w-48">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -221,7 +218,7 @@ export default function AdminReportsPage() {
 
       {/* Expanded filters */}
       {showFilters && (
-        <div className="flex flex-wrap gap-3 mb-4 p-4 bg-slate-50 rounded-2xl border border-slate-200">
+        <div className="flex flex-wrap gap-3 mb-4 p-4 bg-slate-50 rounded-2xl border border-slate-200 no-print">
           {activeReport === "shareholders" && (
             <div>
               <label className="block text-xs text-slate-500 mb-1">الحالة</label>
@@ -296,11 +293,13 @@ export default function AdminReportsPage() {
         </div>
 
         {loading ? (
-          <table className="min-w-full">
-            <tbody className="divide-y divide-slate-50">
-              {[...Array(8)].map((_, i) => <TableRowSkeleton key={i} cols={6} />)}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <tbody className="divide-y divide-slate-50">
+                {[...Array(8)].map((_, i) => <TableRowSkeleton key={i} cols={6} />)}
+              </tbody>
+            </table>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             {/* ── Shareholders table ── */}
@@ -308,9 +307,10 @@ export default function AdminReportsPage() {
               <table className="min-w-full divide-y divide-slate-100 text-sm">
                 <thead className="bg-slate-50">
                   <tr>
-                    {["م","الاسم","الرقم القومي","الهاتف","البريد","العنوان","الحالة","تاريخ التسجيل",""].map((h) => (
+                    {["م","الاسم","الرقم القومي","الهاتف","البريد","العنوان","الحالة","تاريخ التسجيل"].map((h) => (
                       <th key={h} className="px-4 py-3 text-right font-semibold text-slate-600 whitespace-nowrap text-xs">{h}</th>
                     ))}
+                    <th className="no-print px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -327,8 +327,8 @@ export default function AdminReportsPage() {
                       <td className="px-4 py-3">
                         <Badge variant={s.isActive ? "success" : "danger"}>{s.isActive ? "نشط" : "غير نشط"}</Badge>
                       </td>
-                      <td className="px-4 py-3 text-slate-500 text-xs">{formatDate(s.createdAt)}</td>
-                      <td className="px-3 py-3">
+                      <td className="px-4 py-3 text-slate-400 text-xs">{formatDate(s.createdAt)}</td>
+                      <td className="no-print px-3 py-3">
                         <EyeBtn onClick={() => setDetail({ kind:"shareholder", data:s })} />
                       </td>
                     </tr>
@@ -342,9 +342,10 @@ export default function AdminReportsPage() {
               <table className="min-w-full divide-y divide-slate-100 text-sm">
                 <thead className="bg-slate-50">
                   <tr>
-                    {["م","الكود","الاسم","العنوان","إجمالي الشقق","الطوابق","شقق/طابق","الوصف",""].map((h) => (
+                    {["م","الكود","الاسم","العنوان","إجمالي الشقق","الطوابق","شقق/طابق","الوصف"].map((h) => (
                       <th key={h} className="px-4 py-3 text-right font-semibold text-slate-600 whitespace-nowrap text-xs">{h}</th>
                     ))}
+                    <th className="no-print px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -360,7 +361,7 @@ export default function AdminReportsPage() {
                       <td className="px-4 py-3 text-slate-700">{u.numFloors}</td>
                       <td className="px-4 py-3 text-slate-700">{u.numApartmentsFloor ?? "—"}</td>
                       <td className="px-4 py-3 text-slate-500 max-w-xs truncate">{u.description ?? "—"}</td>
-                      <td className="px-3 py-3">
+                      <td className="no-print px-3 py-3">
                         <EyeBtn onClick={() => setDetail({ kind:"unit", data:u })} />
                       </td>
                     </tr>
@@ -374,9 +375,10 @@ export default function AdminReportsPage() {
               <table className="min-w-full divide-y divide-slate-100 text-sm">
                 <thead className="bg-slate-50">
                   <tr>
-                    {["م","رقم الشقة","الطابق","الوحدة","الحالة",""].map((h) => (
+                    {["م","رقم الشقة","الطابق","الوحدة","الحالة"].map((h) => (
                       <th key={h} className="px-4 py-3 text-right font-semibold text-slate-600 whitespace-nowrap text-xs">{h}</th>
                     ))}
+                    <th className="no-print px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -393,7 +395,7 @@ export default function AdminReportsPage() {
                           {ApartmentStatusLabels[a.status]}
                         </Badge>
                       </td>
-                      <td className="px-3 py-3">
+                      <td className="no-print px-3 py-3">
                         <EyeBtn onClick={() => {
                           const owners = ownerships.filter(o => o.apartmentId === a.id);
                           setDetail({ kind:"apartment", data:a, owners });
@@ -410,9 +412,10 @@ export default function AdminReportsPage() {
               <table className="min-w-full divide-y divide-slate-100 text-sm">
                 <thead className="bg-slate-50">
                   <tr>
-                    {["م","المساهم","رقم الشقة","الوحدة","نسبة الملكية",""].map((h) => (
+                    {["م","المساهم","رقم الشقة","الوحدة","نسبة الملكية"].map((h) => (
                       <th key={h} className="px-4 py-3 text-right font-semibold text-slate-600 whitespace-nowrap text-xs">{h}</th>
                     ))}
+                    <th className="no-print px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -435,7 +438,7 @@ export default function AdminReportsPage() {
                             <span className="font-semibold text-indigo-600 text-xs">{o.ownershipPercentage}%</span>
                           </div>
                         </td>
-                        <td className="px-3 py-3">
+                        <td className="no-print px-3 py-3">
                           <EyeBtn onClick={() => setDetail({ kind:"ownership", data:o, unitName: unit?.name ?? unit?.code ?? undefined })} />
                         </td>
                       </tr>

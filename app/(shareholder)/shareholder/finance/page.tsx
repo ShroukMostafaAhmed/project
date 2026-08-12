@@ -1,177 +1,240 @@
 "use client";
 
-import { useState } from "react";
-import { TrendingUp, DollarSign, Percent, Building2 } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
+import { TrendingDown, Wallet, RefreshCw, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 import DashboardShell from "@/app/components/layout/DashboardShell";
 import PageHeader from "@/app/components/ui/PageHeader";
-import StatCard from "@/app/components/ui/StatCard";
-import { StatCardSkeleton, ChartSkeleton } from "@/app/components/ui/Skeleton";
-import { useOwnershipsByShareholder, useUnits, useApartments } from "@/app/lib/hooks";
+import { Skeleton } from "@/app/components/ui/Skeleton";
+import { api } from "@/app/lib/api";
 import { getAuthUser } from "@/app/lib/auth";
-import { formatCurrency } from "@/app/lib/utils";
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  CartesianGrid, PieChart, Pie, Cell, Legend,
-} from "recharts";
-import { currency } from "@/app/lib/recharts-types";
+import { ShareholderFinanceReportDto, UnitAuditStatus } from "@/app/lib/types";
+import { formatCurrency, formatDate } from "@/app/lib/utils";
 
-const COLORS = ["#6366f1", "#8b5cf6", "#10b981", "#f59e0b"];
-
-// Simulated per-apartment financials
-function mockAptFinance(aptId: number) {
-  const seed = aptId * 137;
-  return {
-    revenue: 10000 + (seed % 30000),
-    expenses: 3000 + (seed % 10000),
-    deposit: 1000 + (seed % 5000),
-    debt: seed % 3 === 0 ? 2000 + (seed % 8000) : 0,
-  };
+function cStyle(): React.CSSProperties {
+  return { background: "var(--card)", border: "1px solid var(--card-border)" };
 }
 
 export default function ShareholderFinancePage() {
   const user          = getAuthUser();
   const shareholderId = user?.shareholderId ?? null;
 
-  const { ownerships, loading: lo } = useOwnershipsByShareholder(shareholderId);
-  const { units,      loading: lu } = useUnits();
-  const { apartments, loading: la } = useApartments();
-  const loading = lo || lu || la;
+  const [report,    setReport]    = useState<ShareholderFinanceReportDto | null>(null);
+  const [loading,   setLoading]   = useState(true);
+  const [error,     setError]     = useState("");
+  const [expanded,  setExpanded]  = useState<number | null>(null);
 
-  const [activeTab, setActiveTab] = useState<"chart" | "table">("chart");
-  const aptFinances = ownerships.map((o) => {
-    const apt = apartments.find((a) => a.id === o.apartmentId);
-    const unit = units.find((u) => u.id === apt?.unitId);
-    const fin = mockAptFinance(o.apartmentId);
-    const myShare = o.ownershipPercentage / 100;
-    return {
-      label: `شقة ${apt?.apartmentNumber ?? o.apartmentId}`,
-      unit: unit?.name ?? `وحدة #${unit?.id}`,
-      ownership: o.ownershipPercentage,
-      revenue: fin.revenue * myShare,
-      expenses: fin.expenses * myShare,
-      deposit: fin.deposit * myShare,
-      debt: fin.debt * myShare,
-    };
-  });
+  // جرود لكل وحدة — map: unitId → UnitAuditDto[]
+  const [unitAudits, setUnitAudits] = useState<Record<number, import("@/app/lib/types").UnitAuditDto[]>>({});
 
-  const totalRevenue = aptFinances.reduce((s, f) => s + f.revenue, 0);
-  const totalExpenses = aptFinances.reduce((s, f) => s + f.expenses, 0);
-  const totalDeposit = aptFinances.reduce((s, f) => s + f.deposit, 0);
-  const totalDebt = aptFinances.reduce((s, f) => s + f.debt, 0);
-  const netProfit = totalRevenue - totalExpenses;
-
-  const pieData = [
-    { name: "إيرادات", value: Math.round(totalRevenue) },
-    { name: "مصاريف", value: Math.round(totalExpenses) },
-    { name: "ودائع", value: Math.round(totalDeposit) },
-    { name: "مديونية", value: Math.round(totalDebt) },
-  ].filter((d) => d.value > 0);
-
-  if (loading) {
-    return (
-      <DashboardShell title="الماليه">
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-            {[...Array(4)].map((_, i) => <StatCardSkeleton key={i} />)}
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {[...Array(2)].map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl p-5 border border-slate-100"><ChartSkeleton /></div>
-            ))}
-          </div>
-        </div>
-      </DashboardShell>
-    );
+  async function load() {
+    if (!shareholderId) { setLoading(false); return; }
+    setLoading(true); setError("");
+    try {
+      const data = await api.finances.shareholderReport(shareholderId);
+      setReport(data);
+    } catch (err) { setError((err as Error).message); }
+    finally { setLoading(false); }
   }
+
+  useEffect(() => { load(); }, [shareholderId]); // eslint-disable-line
+
+  // لما وحدة تتفتح — حمّل جرودها
+  function toggleUnit(unitId: number) {
+    setExpanded(p => p === unitId ? null : unitId);
+    if (!unitAudits[unitId]) {
+      api.unitAudits.list(unitId)
+        .then(data => setUnitAudits(p => ({ ...p, [unitId]: Array.isArray(data) ? data : [] })))
+        .catch(() => {});
+    }
+  }
+
+  const totalOwed = report?.totalOwedAmount ?? 0;
+  const totalPaid = report?.totalPaidAmount ?? 0;
+  const totalDebt = report?.totalDebtAmount ?? 0;
+
+  if (loading) return (
+    <DashboardShell title="الماليه">
+      <div className="space-y-4">
+        <div className="grid grid-cols-3 gap-3">
+          {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}
+        </div>
+        {[...Array(2)].map((_, i) => <Skeleton key={i} className="h-32 rounded-2xl" />)}
+      </div>
+    </DashboardShell>
+  );
 
   return (
     <DashboardShell title="الماليه">
-      <PageHeader title="الماليه" subtitle="ملخص مالي بناءً على نسبة ملكيتك" />
+      <PageHeader title="وضعي المالي"
+        subtitle="ديونك ومدفوعاتك في كل وحدة"
+        actions={
+          <button onClick={load} className="w-9 h-9 rounded-xl border flex items-center justify-center" style={cStyle()}>
+            <RefreshCw className="w-4 h-4" style={{ color: "var(--muted)" }} />
+          </button>
+        }
+      />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
-        <StatCard title="حصتي من الإيرادات" value={formatCurrency(totalRevenue)} icon={TrendingUp} iconColor="text-emerald-600" iconBg="bg-emerald-50" />
-        <StatCard title="حصتي من المصاريف" value={formatCurrency(totalExpenses)} icon={DollarSign} iconColor="text-red-500" iconBg="bg-red-50" />
-        <StatCard title="صافي ربحي" value={formatCurrency(netProfit)} icon={Percent} iconColor={netProfit >= 0 ? "text-indigo-600" : "text-red-500"} iconBg={netProfit >= 0 ? "bg-indigo-50" : "bg-red-50"} />
-        <StatCard title="مديونيتي" value={formatCurrency(totalDebt)} icon={Building2} iconColor="text-amber-600" iconBg="bg-amber-50" />
+      {error && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl mb-4 text-sm"
+          style={{ background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.25)", color: "#ef4444" }}>
+          <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+        </div>
+      )}
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-3 gap-3 mb-5">
+        {[
+          { label: "إجمالي المطلوب",   value: totalOwed, clr: "#ef4444", bg: "rgba(239,68,68,.1)",   icon: TrendingDown },
+          { label: "إجمالي المسدَّد",  value: totalPaid, clr: "#10b981", bg: "rgba(16,185,129,.1)",  icon: Wallet },
+          { label: "الدين المتبقي",    value: totalDebt, clr: totalDebt > 0 ? "#f59e0b" : "#10b981",
+            bg: totalDebt > 0 ? "rgba(245,158,11,.1)" : "rgba(16,185,129,.1)",  icon: Wallet },
+        ].map(({ label, value, clr, bg, icon: Icon }) => (
+          <div key={label} className="rounded-2xl p-4 flex items-start gap-3" style={cStyle()}>
+            <div className="p-2.5 rounded-xl shrink-0 mt-0.5" style={{ background: bg }}>
+              <Icon className="w-4 h-4" style={{ color: clr }} />
+            </div>
+            <div>
+              <p className="text-xs font-medium mb-0.5" style={{ color: "var(--muted)" }}>{label}</p>
+              <p className="text-lg font-bold" style={{ color: clr }}>{formatCurrency(value)}</p>
+            </div>
+          </div>
+        ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        {/* Bar chart per apartment */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-semibold text-slate-700 mb-4">الوضع المالي لكل شقة</h3>
-          {aptFinances.length > 0 ? (
-            <ResponsiveContainer width="100%" height={230}>
-              <BarChart data={aptFinances}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="label" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                <Tooltip formatter={currency} />
-                <Legend />
-                <Bar dataKey="revenue" name="إيرادات" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expenses" name="مصاريف" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-40 flex items-center justify-center text-slate-400">لا توجد بيانات</div>
-          )}
+      {/* Per-unit details */}
+      {!report || !report.units?.length ? (
+        <div className="rounded-2xl border py-16 text-center" style={cStyle()}>
+          <p className="text-sm" style={{ color: "var(--muted)" }}>لا توجد بيانات مالية بعد</p>
         </div>
+      ) : (
+        <div className="space-y-3">
+          {report.units.map(u => {
+            const isOpen = expanded === u.unitId;
+            const hasDebt = u.debtAmount > 0;
+            const audits = unitAudits[u.unitId] ?? [];
+            const closedAudits = audits.filter(a => a.status === UnitAuditStatus.Closed);
 
-        {/* Pie */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-semibold text-slate-700 mb-4">التوزيع المالي</h3>
-          {pieData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={230}>
-              <PieChart>
-                <Pie data={pieData} cx="50%" cy="50%" outerRadius={80} dataKey="value" label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
-                  {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Pie>
-                <Tooltip formatter={currency} />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-40 flex items-center justify-center text-slate-400">لا توجد بيانات</div>
-          )}
-        </div>
-      </div>
+            return (
+              <div key={u.unitId} className="rounded-2xl border overflow-hidden" style={cStyle()}>
+                {/* Unit header */}
+                <div className="flex items-center gap-4 px-5 py-4 cursor-pointer"
+                  style={{ background: isOpen ? "rgba(99,102,241,.04)" : "transparent" }}
+                  onMouseEnter={e => { if (!isOpen) e.currentTarget.style.background = "rgba(128,128,128,.04)"; }}
+                  onMouseLeave={e => { if (!isOpen) e.currentTarget.style.background = "transparent"; }}
+                  onClick={() => toggleUnit(u.unitId)}>
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold shrink-0"
+                    style={{ background: "linear-gradient(135deg,#6366f1,#7c3aed)" }}>
+                    {(u.unitName ?? "؟")[0]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm" style={{ color: "var(--foreground)" }}>{u.unitName ?? `وحدة ${u.unitId}`}</p>
+                    <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
+                      {u.sharesCount} سهم — {u.sharePercentage?.toFixed(1)}%
+                    </p>
+                  </div>
+                  <div className="hidden sm:flex items-center gap-5 shrink-0">
+                    {[
+                      { label: "المطلوب",  value: u.owedAmount, clr: "#ef4444" },
+                      { label: "المسدَّد", value: u.paidAmount, clr: "#10b981" },
+                      { label: "الدين",    value: u.debtAmount, clr: hasDebt ? "#f59e0b" : "#10b981" },
+                    ].map(({ label, value, clr }) => (
+                      <div key={label} className="text-center">
+                        <p className="text-[11px] mb-1" style={{ color: "var(--muted)" }}>{label}</p>
+                        <p className="text-sm font-bold" style={{ color: clr }}>{formatCurrency(value)}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0"
+                    style={hasDebt
+                      ? { background: "rgba(245,158,11,.1)", color: "#f59e0b" }
+                      : { background: "rgba(16,185,129,.1)", color: "#10b981" }}>
+                    {hasDebt ? "لديك دين" : "مسدَّد ✓"}
+                  </span>
+                  {isOpen ? <ChevronUp className="w-4 h-4 shrink-0" style={{ color: "var(--muted)" }} />
+                          : <ChevronDown className="w-4 h-4 shrink-0" style={{ color: "var(--muted)" }} />}
+                </div>
 
-      {/* Detailed table per apartment */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100">
-          <h3 className="font-semibold text-slate-800">تفاصيل كل شقة (حسب نسبة ملكيتك)</h3>
+                {/* Expanded — audit breakdown */}
+                {isOpen && (
+                  <div className="border-t px-5 pb-5 pt-3" style={{ borderColor: "var(--card-border)" }}>
+                    {/* 4 cards */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                      {[
+                        { label: "إجمالي التكلفة", value: u.totalUnitCost,  clr: "#ef4444" },
+                        { label: "حصتي المطلوبة",  value: u.owedAmount,     clr: "#6366f1" },
+                        { label: "دفعت",           value: u.paidAmount,     clr: "#10b981" },
+                        { label: "الدين المتبقي",  value: u.debtAmount,     clr: hasDebt ? "#f59e0b" : "#10b981" },
+                      ].map(({ label, value, clr }) => (
+                        <div key={label} className="rounded-xl p-3 text-center" style={{ background: `${clr}10` }}>
+                          <p className="text-[10px] font-medium mb-1" style={{ color: "var(--muted)" }}>{label}</p>
+                          <p className="text-sm font-bold" style={{ color: clr }}>{formatCurrency(value)}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Audit breakdown */}
+                    {closedAudits.length > 0 && (
+                      <div className="rounded-xl overflow-hidden border" style={{ borderColor: "var(--card-border)" }}>
+                        <div className="px-3 py-2 text-[11px] font-semibold" style={{ background: "rgba(99,102,241,.06)", color: "#6366f1" }}>
+                          تفصيل الجرود
+                        </div>
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr style={{ borderBottom: "1px solid var(--card-border)" }}>
+                              {["الجرد", "الفترة", "حصتي", "الحالة"].map((h, i) => (
+                                <th key={h} style={{ padding: "6px 10px", color: "var(--muted)", fontWeight: 600, textAlign: i === 0 ? "right" : "center", fontSize: 10 }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {closedAudits
+                              .sort((a, b) => new Date(a.fromDate).getTime() - new Date(b.fromDate).getTime())
+                              .map(a => {
+                                const myShare = a.shareholderShares.find(s => s.shareholderId === shareholderId);
+                                const owed    = myShare?.shareAmount ?? (a.totalExpenses * (u.sharePercentage / 100));
+                                return (
+                                  <tr key={a.id} style={{ borderBottom: "1px solid var(--card-border)" }}>
+                                    <td style={{ padding: "8px 10px", color: "var(--foreground)", fontWeight: 600 }}>
+                                      {a.name}
+                                      {!myShare && (
+                                        <span className="mr-1 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,.1)", color: "#f59e0b" }}>تقديري</span>
+                                      )}
+                                    </td>
+                                    <td style={{ padding: "8px 10px", color: "var(--muted)", textAlign: "center", whiteSpace: "nowrap" }}>
+                                      {formatDate(a.fromDate)} — {formatDate(a.toDate)}
+                                    </td>
+                                    <td style={{ padding: "8px 10px", fontWeight: 700, color: "#ef4444", textAlign: "center" }}>
+                                      {formatCurrency(owed)}
+                                    </td>
+                                    <td style={{ padding: "8px 10px", textAlign: "center" }}>
+                                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                                        style={{ background: "rgba(16,185,129,.1)", color: "#10b981" }}>مقفول ✓</span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {audits.length === 0 && (
+                      <p className="text-xs text-center py-3" style={{ color: "var(--muted)" }}>
+                        جاري تحميل الجرود...
+                      </p>
+                    )}
+                    {audits.length > 0 && closedAudits.length === 0 && (
+                      <p className="text-xs text-center py-3" style={{ color: "var(--muted)" }}>
+                        لا توجد جرود مقفولة بعد
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-100 text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                {["الشقة", "الوحدة", "ملكيتي", "الإيرادات", "المصاريف", "الودائع", "المديونية", "الصافي"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-right font-semibold text-slate-600 whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {aptFinances.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-12 text-slate-400">لا توجد بيانات</td></tr>
-              ) : (
-                aptFinances.map((f, i) => (
-                  <tr key={i} className="hover:bg-slate-50">
-                    <td className="px-4 py-3 font-medium text-slate-800">{f.label}</td>
-                    <td className="px-4 py-3 text-slate-500">{f.unit}</td>
-                    <td className="px-4 py-3 text-indigo-600 font-medium">{f.ownership}%</td>
-                    <td className="px-4 py-3 text-emerald-600">{formatCurrency(f.revenue)}</td>
-                    <td className="px-4 py-3 text-red-500">{formatCurrency(f.expenses)}</td>
-                    <td className="px-4 py-3 text-slate-600">{formatCurrency(f.deposit)}</td>
-                    <td className="px-4 py-3 text-amber-600">{formatCurrency(f.debt)}</td>
-                    <td className={`px-4 py-3 font-semibold ${f.revenue - f.expenses >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                      {formatCurrency(f.revenue - f.expenses)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      )}
     </DashboardShell>
   );
 }

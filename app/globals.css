@@ -218,11 +218,144 @@ main { animation: fadeUp 0.3s ease both; }
   font-size: 12px !important;
 }
 
+/* ── Page setup (A4 + ترقيم الصفحات) ────────────── */
+@page {
+  size: A4 portrait;
+  margin: 15mm 12mm 20mm;
+}
+
 /* ── Print ────────────────────────────────────────── */
 @media print {
-  .no-print      { display: none !important; }
-  body           { background: white; }
-  main           { animation: none; }
+  /* إخفاء عناصر الـ UI المحددة صراحةً بـ no-print */
+  .no-print,
+  aside,
+  nav,
+  header,
+  .topbar                  { display: none !important; }
+
+  /* شيل كل الأزرار ما عدا اللي عليها print-btn */
+  button:not(.print-btn)   { display: none !important; }
+
+  /* شيل الـ fixed/sticky elements (modals, floating buttons, etc.) */
+  .fixed, .sticky          { display: none !important; }
+
+  /* الـ @page داخل media print للتأكيد */
+  @page {
+    size: A4 portrait;
+    margin: 15mm 12mm 20mm;
+  }
+
+  body {
+    background: white !important;
+    color: #000 !important;
+    font-size: 11pt;
+    font-family: Arial, "Segoe UI", sans-serif;
+    direction: rtl;
+  }
+
+  main { animation: none !important; padding: 0 !important; }
+
+  /* شيل الـ shadows والـ radius */
+  .rounded-2xl, .rounded-xl { border-radius: 4px !important; }
+  * { box-shadow: none !important; text-shadow: none !important; }
+
+  /* Backgrounds نظيفة */
+  .bg-white, .bg-slate-50, .bg-indigo-50,
+  .bg-emerald-50, .bg-red-50, .bg-amber-50 { background: white !important; }
+
+  /* جداول احترافية */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto;
+    font-size: 9pt !important;
+  }
+  thead { display: table-header-group; }  /* header يتكرر في كل صفحة */
+  tfoot { display: table-footer-group; }  /* footer يتكرر في كل صفحة */
+  tr    { page-break-inside: avoid; }     /* السطر الواحد ميتقسمش */
+  th {
+    background: #f1f5f9 !important;
+    font-weight: 700 !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 5px 8px !important;
+    color: #1e293b !important;
+    font-size: 9pt !important;
+  }
+  td {
+    border: 1px solid #e2e8f0 !important;
+    padding: 5px 8px !important;
+    color: #0f172a !important;
+    background: white !important;
+    font-size: 9pt !important;
+  }
+
+  /* حافظ على ألوان النص المهمة */
+  .text-indigo-600, .text-indigo-500 { color: #4338ca !important; }
+  .text-emerald-600, .text-green-600 { color: #059669 !important; }
+  .text-red-500,  .text-red-600      { color: #dc2626 !important; }
+  .text-amber-600                    { color: #d97706 !important; }
+  .text-slate-800, .text-slate-700   { color: #1e293b !important; }
+  .text-slate-600, .text-slate-500,
+  .text-slate-400                    { color: #64748b !important; }
+
+  /* ── Print Header — يظهر فقط عند الطباعة ── */
+  .print-header {
+    display: block !important;
+    text-align: center;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #4338ca;
+  }
+  .print-header h1 {
+    font-size: 18pt;
+    color: #4338ca;
+    margin: 0 0 4px;
+    font-weight: 800;
+  }
+  .print-header p {
+    font-size: 9pt;
+    color: #64748b;
+    margin: 0;
+  }
+
+  /* ── Print Footer ── */
+  .print-footer {
+    display: block !important;
+    text-align: center;
+    font-size: 8pt;
+    color: #94a3b8;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 6px;
+    margin-top: 20px;
+    /* مش fixed — بيجي بعد المحتوى على آخر صفحة */
+  }
+
+  /* DashboardShell layout override — لازم يبقى flow عادي مش flex */
+  body > div,
+  [dir="rtl"],
+  .flex.h-full.min-h-screen,
+  .flex-1.p-4,
+  .flex-1.p-6 {
+    display: block !important;
+    height: auto !important;
+    min-height: unset !important;
+    max-height: none !important;
+    overflow: visible !important;
+    position: static !important;
+  }
+
+  /* ── عند الطباعة: شيل الـ overflow من كل Container عشان المحتوى يتقسم صح ── */
+  html, body, #__next, main, .overflow-auto, .overflow-hidden, .overflow-x-auto {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  /* إضافات للشاشة تتشال */
+  .overflow-x-auto { overflow: visible !important; }
+  .overflow-hidden  { overflow: visible !important; }
+
+  /* رقم الصفحة في كل صفحة (مدعوم في Chrome/Edge) */
 }
 
 /* ── Chart tooltip ────────────────────────────────── */

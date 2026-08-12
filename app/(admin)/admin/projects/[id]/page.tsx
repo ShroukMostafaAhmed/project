@@ -1,21 +1,20 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowRight, Building2, Home, Layers, MapPin,
-  Plus, ChevronDown, ChevronUp,
-  Printer, Edit2, Users, CheckCircle,
+  ChevronDown, ChevronUp,
+  Edit2, Users, CheckCircle,
 } from "lucide-react";
 import DashboardShell from "@/app/components/layout/DashboardShell";
-import Modal from "@/app/components/ui/Modal";
 import { Skeleton } from "@/app/components/ui/Skeleton";
 import { api } from "@/app/lib/api";
 import {
   UnitDto, ApartmentDto, ApartmentOwnershipDto,
-  ApartmentStatus, ApartmentStatusLabels,
-  CreateApartmentDto, ownershipBadge,
+  ApartmentStatus,
+  ownershipBadge,
 } from "@/app/lib/types";
 
 export default function ProjectDetailPage({
@@ -31,11 +30,8 @@ export default function ProjectDetailPage({
   const [expandedId, setExpandedId]= useState<number | null>(null);
   const [ownMap,     setOwnMap]    = useState<Record<number, ApartmentOwnershipDto[]>>({});
   const [showAdd,    setShowAdd]   = useState(false);
-  const [form,       setForm]      = useState<CreateApartmentDto>({
-    apartmentNumber: "", floor: "", status: ApartmentStatus.Available,
-  });
-  const [saving,  setSaving]  = useState(false);
-  const [unitId,  setUnitId]  = useState<number | null>(null);
+  const [saving,     setSaving]    = useState(false);
+  const [unitId,     setUnitId]    = useState<number | null>(null);
 
   /* ── Load ── */
   useEffect(() => {
@@ -71,25 +67,6 @@ export default function ProjectDetailPage({
     if (!ownMap[id]) {
       api.ownerships.byApartment(id).then(d => setOwnMap(p => ({ ...p, [id]: d })));
     }
-  }
-
-  async function addApartment(e: React.FormEvent) {
-    e.preventDefault();
-    if (!unitId) return;
-    setSaving(true);
-    try {
-      await api.apartments.create({ ...form, unitId });
-      setApartments(await api.apartments.byUnit(unitId));
-      setShowAdd(false);
-      setForm({ apartmentNumber: "", floor: "", status: ApartmentStatus.Available });
-    } catch (err) { alert((err as Error).message); }
-    finally { setSaving(false); }
-  }
-
-
-  /* ── Print only this project ── */
-  function printProject() {
-    window.print();
   }
 
   /* ── Loading skeleton ── */
@@ -145,18 +122,7 @@ export default function ProjectDetailPage({
     : 0;
 
   return (
-    <>
-      {/* ── Print stylesheet ─────────────────────────────── */}
-      <style>{`
-        @media print {
-          body * { visibility: hidden !important; }
-          #project-print, #project-print * { visibility: visible !important; }
-          #project-print { position: fixed; inset: 0; padding: 24px; background: white; }
-          .no-print { display: none !important; }
-        }
-      `}</style>
-
-      <DashboardShell title={unit.name ?? unit.code ?? "المشروع"}>
+    <DashboardShell title={unit.name ?? unit.code ?? "المشروع"}>
 
         {/* Back + Print — no-print */}
         <div className="flex items-center justify-between mb-4 no-print">
@@ -165,34 +131,16 @@ export default function ProjectDetailPage({
             <ArrowRight className="w-4 h-4" />
             العودة للمشاريع
           </Link>
-          <div className="flex gap-2">
-            <button
-              onClick={printProject}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-sm font-medium transition-colors shadow-sm"
-            >
-              <Printer className="w-4 h-4" />
-              طباعة المشروع
-            </button>
-            <Link href={`/admin/projects/${unit.id}/edit`}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold transition-colors"
-              style={{ background: "linear-gradient(135deg,#6366f1,#7c3aed)" }}>
-              <Edit2 className="w-4 h-4" />
-              تعديل
-            </Link>
-          </div>
+          <Link href={`/admin/projects/${unit.id}/edit`}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold transition-colors"
+            style={{ background: "linear-gradient(135deg,#6366f1,#7c3aed)" }}>
+            <Edit2 className="w-4 h-4" />
+            تعديل
+          </Link>
         </div>
 
-        {/* ── Printable content ─────────────────────────────── */}
-        <div id="project-print">
-
-          {/* Print-only header */}
-          <div className="hidden print:block mb-6 pb-4 border-b-2 border-slate-200">
-            <p className="text-xs text-slate-400 mb-1">تقرير مشروع — Top First House </p>
-            <h1 className="text-2xl font-bold text-slate-800">{unit.name}</h1>
-            <p className="text-sm text-slate-500 mt-0.5">
-              {unit.code} {unit.address ? `· ${unit.address}` : ""}
-            </p>
-          </div>
+        {/* ── Content ── */}
+        <div>
 
           {/* Hero banner */}
           <div
@@ -397,9 +345,6 @@ export default function ProjectDetailPage({
           </div>
         </div>
 
-    
-
       </DashboardShell>
-    </>
   );
 }
