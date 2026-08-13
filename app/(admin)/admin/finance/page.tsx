@@ -99,9 +99,9 @@ export default function AdminFinancePage() {
     shareholderName: string | null;
     unitId:          number;
     unitName:        string | null;
-    auditId:         number;
+    auditId:         number | null;   // null = سداد عام بدون ربط بجرد
     auditName:       string;
-    maxAmount:       number;  // الدين المتبقي في هذا الجرد
+    maxAmount:       number;
   } | null>(null);
   const [payForm,  setPayForm]  = useState({ ...EMPTY_PAY });
   const [paySaving,setPaySaving]= useState(false);
@@ -157,7 +157,7 @@ export default function AdminFinancePage() {
     shareholderName: string | null;
     unitId:          number;
     unitName:        string | null;
-    auditId:         number;
+    auditId:         number | null;
     auditName:       string;
     debtAmount:      number;
   }) {
@@ -170,7 +170,7 @@ export default function AdminFinancePage() {
       auditName:       params.auditName,
       maxAmount:       params.debtAmount,
     });
-    setPayForm({ ...EMPTY_PAY, auditId: String(params.auditId) });
+    setPayForm({ ...EMPTY_PAY, auditId: params.auditId ? String(params.auditId) : "" });
     setPayErr("");
     setShowPayModal(true);
   }
@@ -190,17 +190,22 @@ export default function AdminFinancePage() {
         type:          FinanceType.Payment,
         unitId:        payTarget.unitId,
         shareholderId: payTarget.shareholderId,
-        auditId:       payTarget.auditId,
+        // auditId بس لو السداد مرتبط بجرد — لو null بيتسجل كسداد عام
+        ...(payTarget.auditId !== null ? { auditId: payTarget.auditId } : {}),
         notes:         payForm.notes || null,
-        description:   `سداد — ${payTarget.auditName}`,
+        description:   payTarget.auditId
+          ? `سداد — ${payTarget.auditName}`
+          : `سداد عام — ${payTarget.unitName ?? ""}`,
       } as CreateFinanceDto);
       setShowPayModal(false);
 
-      // حدّث المدفوعات في الـ state مباشرة (بدون reload كامل)
-      const key = `${payTarget.unitId}-${payTarget.auditId}-${payTarget.shareholderId}`;
-      setShPayments(prev => ({ ...prev, [key]: (prev[key] ?? 0) + amt }));
+      // حدّث المدفوعات في الـ state مباشرة
+      if (payTarget.auditId !== null) {
+        const key = `${payTarget.unitId}-${payTarget.auditId}-${payTarget.shareholderId}`;
+        setShPayments(prev => ({ ...prev, [key]: (prev[key] ?? 0) + amt }));
+      }
 
-      // reset تقرير المساهمين عشان الأرقام الكلية تتحدث
+      // reset تقرير المساهمين
       setShReport([]);
       await loadFinances();
     } catch (err) { setPayErr((err as Error).message); }
@@ -582,14 +587,14 @@ export default function AdminFinancePage() {
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm" style={{ tableLayout: "fixed" }}>
                   <colgroup>
-                    <col style={{ width: "5%" }} /><col style={{ width: "12%" }} /><col style={{ width: "26%" }} />
-                    <col style={{ width: "11%" }} /><col style={{ width: "16%" }} /><col style={{ width: "18%" }} /><col style={{ width: "12%" }} />
-                  </colgroup>
+  <col style={{ width: "6%" }} /><col style={{ width: "14%" }} /><col style={{ width: "32%" }} />
+  <col style={{ width: "13%" }} /><col style={{ width: "20%" }} /><col style={{ width: "15%" }} />
+</colgroup>
                   <thead>
                     <tr style={{ borderBottom: "2px solid var(--card-border)" }}>
-                      {["م", "التاريخ", "الوصف", "النوع", "المبلغ", "المساهم", "إجراءات"].map((h, i) => (
-                        <th key={h} style={{ color: "var(--muted)", background: "rgba(128,128,128,.05)", padding: "10px 12px", textAlign: i === 0 || i === 6 ? "center" : "right", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>{h}</th>
-                      ))}
+                    {["م", "التاريخ", "الوصف", "النوع", "المبلغ", "إجراءات"].map((h, i) => (
+  <th key={h} style={{ color: "var(--muted)", background: "rgba(128,128,128,.05)", padding: "12px", textAlign: i === 0 || i === 5 ? "center" : "right", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>{h}</th>
+))}
                     </tr>
                   </thead>
                   <tbody>
@@ -605,26 +610,30 @@ export default function AdminFinancePage() {
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                           <td style={{ padding: "12px", color: "var(--muted)", fontSize: 12, textAlign: "center" }}>{i + 1}</td>
                           <td style={{ padding: "12px", color: "var(--foreground)", fontSize: 12, whiteSpace: "nowrap" }}>{dateStr}</td>
-                          <td style={{ padding: "12px 16px", overflow: "hidden" }}>
+                          <td style={{ padding: "12px", overflow: "hidden" }}>
                             <p style={{ color: "var(--foreground)", fontSize: 13, fontWeight: 500, margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                               {f.description || "—"}
+                              {/* لو دفعة وفيها اسم مساهم — نعرضه بين قوسين */}
+                              {f.type === FinanceType.Payment && f.shareholderName && (
+                                <span style={{ color: "#6366f1", fontWeight: 600, marginRight: 4 }}>
+                                  ({f.shareholderName})
+                                </span>
+                              )}
                             </p>
                             {f.unitName && activeUnitId === "all" && (
                               <p style={{ color: "var(--muted)", fontSize: 11, margin: "2px 0 0 0" }}>{f.unitName}</p>
                             )}
                           </td>
-                          <td style={{ padding: "12px" }}>
+                          <td style={{ padding: "12px", textAlign: "right" }}>
                             <span className="text-[11px] font-semibold px-2 py-1 rounded-lg"
                               style={isDebt ? { background: "rgba(239,68,68,.1)", color: "#ef4444" } : { background: "rgba(16,185,129,.1)", color: "#10b981" }}>
                               {isDebt ? "مديونية" : "دفعة"}
                             </span>
                           </td>
-                          <td style={{ padding: "12px", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", color: isDebt ? "#ef4444" : "#10b981" }}>
-                            {isDebt ? "− " : "+ "}{formatCurrency(f.amount)}
-                          </td>
-                          <td style={{ padding: "12px", color: "var(--muted)", fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                            {f.shareholderName ?? "—"}
-                          </td>
+                         <td style={{ padding: "12px", textAlign: "right", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", color: isDebt ? "#ef4444" : "#10b981" }}>
+  {isDebt ? "− " : "+ "}{formatCurrency(f.amount)}
+</td>
+                         
                           <td style={{ padding: "12px", textAlign: "center" }}>
                             <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
                               <button onClick={() => openEdit(f)} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ color: "#6366f1" }}
@@ -646,8 +655,8 @@ export default function AdminFinancePage() {
                   {filtered.length > 0 && (
                     <tfoot>
                       <tr style={{ borderTop: "2px solid var(--card-border)", background: "rgba(128,128,128,.05)" }}>
-                        <td colSpan={4} style={{ padding: "12px 16px", fontSize: 14, fontWeight: 700, textAlign: "right", color: "var(--foreground)" }}>الإجمالي</td>
-                        <td colSpan={3} style={{ padding: "12px 16px" }}>
+                       <td colSpan={4} style={{ padding: "12px 16px", fontSize: 14, fontWeight: 700, textAlign: "right", color: "var(--foreground)" }}>الإجمالي</td>
+<td colSpan={2} style={{ padding: "12px 16px" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                             {totalDebt > 0 && <span style={{ color: "#ef4444", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap" }}>− {formatCurrency(totalDebt)}</span>}
                             {totalPaid > 0 && <span style={{ color: "#10b981", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap" }}>+ {formatCurrency(totalPaid)}</span>}
@@ -789,9 +798,28 @@ export default function AdminFinancePage() {
                                   {u.unitName ?? `وحدة ${u.unitId}`}
                                   {u.unitCode && <span className="text-xs font-normal mr-1.5" style={{ color: "var(--muted)" }}>({u.unitCode})</span>}
                                 </p>
-                                <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(99,102,241,.1)", color: "#6366f1" }}>
-                                  {u.sharesCount} سهم — {u.sharePercentage?.toFixed(1)}%
-                                </span>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(99,102,241,.1)", color: "#6366f1" }}>
+                                    {u.sharesCount} سهم — {u.sharePercentage?.toFixed(1)}%
+                                  </span>
+                                  {/* زرار سداد كامل على الوحدة بدون ربط بجرد */}
+                                  {u.debtAmount > 0 && (
+                                    <button
+                                      onClick={() => openPayModal({
+                                        shareholderId:   sh.shareholderId,
+                                        shareholderName: sh.shareholderName ?? null,
+                                        unitId:          u.unitId,
+                                        unitName:        u.unitName ?? null,
+                                        auditId:         null,
+                                        auditName:       "سداد عام",
+                                        debtAmount:      u.debtAmount,
+                                      })}
+                                      className="text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-all"
+                                      style={{ background: "rgba(44, 126, 117, 0.1)", color: "#10b981", border: "1px solid rgba(77, 233, 178, 0.2)" }}>
+                                      سداد كامل ({formatCurrency(u.debtAmount)})
+                                    </button>
+                                  )}
+                                </div>
                               </div>
 
                               {/* الكروت الأربعة */}
@@ -990,14 +1018,7 @@ export default function AdminFinancePage() {
               {units.map(u => <option key={u.id} value={u.id}>{u.name ?? u.code ?? `وحدة ${u.id}`}</option>)}
             </select>
           </div>
-          {/* المساهم */}
-          <div>
-            <label className="block text-xs font-bold mb-1.5" style={{ color: "var(--muted)" }}>المساهم (اختياري)</label>
-            <select value={form.shareholderId} onChange={e => setForm(p => ({ ...p, shareholderId: e.target.value }))} className={ic} style={iStyle()}>
-              <option value="">— بدون تحديد —</option>
-              {shareholders.map(s => <option key={s.id} value={s.id}>{s.fullName ?? `#${s.id}`}</option>)}
-            </select>
-          </div>
+         
           {/* الوصف */}
           <div>
             <label className="block text-xs font-bold mb-1.5" style={{ color: "var(--muted)" }}>الوصف</label>
@@ -1007,8 +1028,13 @@ export default function AdminFinancePage() {
           {/* التاريخ + المبلغ */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold mb-1.5" style={{ color: "var(--muted)" }}>التاريخ <span className="text-red-400">*</span></label>
-              <input type="date" required value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))} className={ic} style={iStyle()} />
+              <label className="block text-xs font-bold mb-1.5" style={{ color: "var(--muted)" }}>
+                التاريخ
+                <span className="mr-1.5 text-[10px] font-normal" style={{ color: "var(--muted)" }}>(اليوم — ثابت)</span>
+              </label>
+              <input type="date" required value={form.date}
+                readOnly
+                className={ic} style={{ ...iStyle(), opacity: .75, cursor: "not-allowed" }} />
             </div>
             <div>
               <label className="block text-xs font-bold mb-1.5" style={{ color: "var(--muted)" }}>المبلغ (ج.م) <span className="text-red-400">*</span></label>
@@ -1136,12 +1162,20 @@ export default function AdminFinancePage() {
         {payTarget && (
           <form onSubmit={handlePay} className="space-y-4">
 
-            {/* معلومات الجرد */}
-            <div className="px-3.5 py-3 rounded-xl" style={{ background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.15)" }}>
-              <p className="text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>الدين المتبقي في هذا الجرد</p>
-              <p className="text-xl font-bold" style={{ color: "#ef4444" }}>{formatCurrency(payTarget.maxAmount)}</p>
+            {/* معلومات الجرد / السداد */}
+            <div className="px-3.5 py-3 rounded-xl"
+              style={payTarget.auditId
+                ? { background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.15)" }
+                : { background: "rgba(99,102,241,.06)", border: "1px solid rgba(99,102,241,.15)" }}>
+              <p className="text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>
+                {payTarget.auditId ? "الدين المتبقي في هذا الجرد" : "سداد عام على الوحدة"}
+              </p>
+              <p className="text-xl font-bold" style={{ color: payTarget.auditId ? "#ef4444" : "#6366f1" }}>
+                {formatCurrency(payTarget.maxAmount)}
+              </p>
               <p className="text-[11px] mt-0.5" style={{ color: "var(--muted)" }}>
-                {payTarget.unitName} — {payTarget.auditName}
+                {payTarget.unitName}
+                {payTarget.auditId ? ` — ${payTarget.auditName}` : " — سيُسجَّل بدون ربط بجرد محدد"}
               </p>
             </div>
 
@@ -1167,10 +1201,13 @@ export default function AdminFinancePage() {
 
             {/* التاريخ */}
             <div>
-              <label className="block text-xs font-bold mb-1.5" style={{ color: "var(--muted)" }}>التاريخ <span className="text-red-400">*</span></label>
+              <label className="block text-xs font-bold mb-1.5" style={{ color: "var(--muted)" }}>
+                التاريخ
+                <span className="mr-1.5 text-[10px] font-normal" style={{ color: "var(--muted)" }}>(اليوم — ثابت)</span>
+              </label>
               <input type="date" required value={payForm.date}
-                onChange={e => setPayForm(p => ({ ...p, date: e.target.value }))}
-                className={ic} style={iStyle()} />
+                readOnly
+                className={ic} style={{ ...iStyle(), opacity: .75, cursor: "not-allowed" }} />
             </div>
 
             {/* ملاحظات */}

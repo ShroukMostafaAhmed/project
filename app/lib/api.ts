@@ -442,6 +442,8 @@ export const api = {
       const q = type !== undefined ? `?TransactionType=${type}` : "";
       return request<FinancialCategoryDto[]>(`/FinancialCategories${q}`);
     },
+    grouped: () =>
+      request<string[]>("/FinancialCategories/grouped"),
     get: (id: number) => request<FinancialCategoryDto>(`/FinancialCategories/${id}`),
     create: (data: CreateFinancialCategoryDto) =>
       request<FinancialCategoryDto>("/FinancialCategories", { method:"POST", body:JSON.stringify(data) }),

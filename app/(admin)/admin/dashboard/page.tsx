@@ -177,7 +177,7 @@ export default function AdminDashboardPage() {
           {
             title: "الشقق الكلية",
             value: apartments.length,
-            sub: `${availableApts} متاح · ${soldApts} مباع · ${rentedApts} مؤجر`,
+            sub: `${availableApts} متاح · ${soldApts} مكتمل `,
             icon: Home,
             color: "text-emerald-600",
             bg: "bg-emerald-50",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Plus, Building2, Home, Layers, MapPin,
   Eye, Edit2, Trash2, Search, RefreshCw,
@@ -47,6 +47,23 @@ export default function AdminProjectsPage() {
         (u.address ?? "").toLowerCase().includes(q)
     );
   }, [units, search]);
+
+  // ── Auto-generated next unit code (A1, A2, A3...) ──────────────────────────
+  const nextCode = useMemo(() => {
+    const nums = units
+      .map((u) => u.code?.match(/^A(\d+)$/i))
+      .filter(Boolean)
+      .map((m) => parseInt(m![1], 10));
+    const max = nums.length ? Math.max(...nums) : 0;
+    return `A${max + 1}`;
+  }, [units]);
+
+  // Whenever the create modal opens, stamp the form with the freshly computed code
+  useEffect(() => {
+    if (showCreate) {
+      setForm((p) => ({ ...p, code: nextCode }));
+    }
+  }, [showCreate, nextCode]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -139,39 +156,78 @@ export default function AdminProjectsPage() {
       {/* Create Modal */}
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="إضافة وحدة جديدة" size="lg">
         <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+          {/* ── Text fields: code is auto-generated & read-only ────────────── */}
           {[
-            { name: "code",        label: "الكود (A1)",  full: false, required: true  },
-            { name: "name",        label: "الاسم",        full: false, required: true  },
-            { name: "address",     label: "العنوان",      full: true,  required: false },
-            { name: "description", label: "الوصف",        full: true,  required: false },
+            { name: "code",        label: "الكود (A1)",  full: false, required: true,  readOnly: true  },
+            { name: "name",        label: "الاسم",        full: false, required: true,  readOnly: false },
+            { name: "address",     label: "العنوان",      full: true,  required: false, readOnly: false },
+            { name: "description", label: "الوصف",        full: true,  required: false, readOnly: false },
           ].map((f) => (
             <div key={f.name} className={f.full ? "sm:col-span-2" : ""}>
               <label className="block text-xs font-semibold text-slate-600 mb-1.5">
                 {f.label}{f.required && <span className="text-red-500 mr-1">*</span>}
               </label>
-              <input type="text" required={f.required}
+              <input
+                type="text"
+                required={f.required}
+                readOnly={f.readOnly}
                 value={(form as Record<string, unknown>)[f.name] as string ?? ""}
                 onChange={(e) => setForm((p) => ({ ...p, [f.name]: e.target.value }))}
-                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-400 focus:bg-white transition-all"
+                className={`w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none transition-all ${
+                  f.readOnly
+                    ? "bg-slate-100 text-slate-500 cursor-not-allowed"
+                    : "bg-slate-50 focus:border-indigo-400 focus:bg-white"
+                }`}
               />
             </div>
           ))}
+
+          {/* ── Total apartments & floors: drive the auto-calculated ratio ── */}
           {[
-            { name: "totalApartments",    label: "إجمالي الشقق",  required: true  },
-            { name: "numFloors",          label: "عدد الطوابق",    required: true  },
-            { name: "numApartmentsFloor", label: "شقق/طابق",       required: false },
+            { name: "totalApartments", label: "إجمالي الشقق", required: true },
+            { name: "numFloors",       label: "عدد الطوابق",   required: true },
           ].map((f) => (
             <div key={f.name}>
               <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                {f.label}{f.required && <span className="text-red-500 mr-1">*</span>}
+                {f.label}<span className="text-red-500 mr-1">*</span>
               </label>
-              <input type="number" required={f.required}
+              <input
+                type="number"
+                required
                 value={(form as Record<string, unknown>)[f.name] as number ?? ""}
-                onChange={(e) => setForm((p) => ({ ...p, [f.name]: e.target.value ? parseInt(e.target.value) : null }))}
+                onChange={(e) => {
+                  const val = e.target.value ? parseInt(e.target.value) : 0;
+                  setForm((p) => {
+                    const totalApartments = f.name === "totalApartments" ? val : (p.totalApartments ?? 0);
+                    const numFloors       = f.name === "numFloors"       ? val : (p.numFloors ?? 0);
+                    return {
+                      ...p,
+                      [f.name]: e.target.value ? val : null,
+                      numApartmentsFloor: numFloors > 0
+                        ? Math.round(totalApartments / numFloors)
+                        : null,
+                    };
+                  });
+                }}
                 className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-400 focus:bg-white transition-all"
               />
             </div>
           ))}
+
+          {/* ── Apartments/floor: auto-calculated, read-only ────────────────── */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+              شقق/طابق
+            </label>
+            <input
+              type="number"
+              readOnly
+              value={form.numApartmentsFloor ?? ""}
+              className="w-full px-3 py-2.5 bg-slate-100 text-slate-500 border border-slate-200 rounded-xl text-sm cursor-not-allowed"
+            />
+          </div>
+
           {formError && <p className="text-red-500 text-xs sm:col-span-2">{formError}</p>}
           <div className="sm:col-span-2 flex gap-2 pt-2">
             <button type="submit" disabled={saving}
@@ -301,7 +357,7 @@ function UnitCard({ unit, palette, aptCount, sold, available, onDelete }: CardPr
               />
             </div>
             <div className="flex items-center justify-between mt-1.5">
-              <span className="text-[10px] text-slate-400">{sold} مباع</span>
+              <span className="text-[10px] text-slate-400">{sold} مكتمل</span>
               <span className="text-[10px] text-slate-400">{available} متاح</span>
             </div>
           </div>

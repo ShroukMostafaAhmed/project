@@ -95,6 +95,24 @@ export default function ProjectEditPage({ params }: { params: Promise<{ id: stri
   }
 
   // ── Auto-calculated values ──────────────────────────────────────────────
+  // شقق لكل طابق = إجمالي الشقق / عدد الطوابق
+  const apartmentsPerFloor = useMemo(() => {
+    const total  = form.totalApartments ?? 0;
+    const floors = form.numFloors ?? 0;
+    if (!floors || floors <= 0) return 0;
+    return Math.round(total / floors);
+  }, [form.totalApartments, form.numFloors]);
+
+  // Keep numApartmentsFloor in form state in sync with the calculation,
+  // so it's included automatically when the payload is built on submit.
+  useEffect(() => {
+    setForm(p => (
+      p.numApartmentsFloor === apartmentsPerFloor
+        ? p
+        : { ...p, numApartmentsFloor: apartmentsPerFloor || null }
+    ));
+  }, [apartmentsPerFloor]);
+
   // نسبة السهم (%) = 100 / عدد الأسهم الإجمالي
   const stockRatio = useMemo(() => {
     const shares = form.numOfShares ?? 0;
@@ -122,6 +140,7 @@ export default function ProjectEditPage({ params }: { params: Promise<{ id: stri
       // since they aren't editable inputs and never live in form state.
       const payload: UpdateUnitDto = {
         ...form,
+        numApartmentsFloor: apartmentsPerFloor || null,
         stockRatio,
         landSharePrice,
       };
@@ -193,9 +212,10 @@ export default function ProjectEditPage({ params }: { params: Promise<{ id: stri
               className={inputCls} style={iStyle()} />
           </Field>
           <Field label="شقق لكل طابق">
-            <input type="number" min={0} value={form.numApartmentsFloor ?? ""}
-              onChange={e => setInt("numApartmentsFloor", e.target.value)}
-              className={inputCls} style={iStyle()} />
+            {/* محسوبة تلقائيًا: إجمالي الشقق / عدد الطوابق — غير قابلة للتعديل يدويًا */}
+            <input type="text" readOnly disabled
+              value={apartmentsPerFloor || "—"}
+              className={readOnlyCls} style={readOnlyStyle} />
           </Field>
           <Field label="عدد المساهمين">
             <input type="number" min={0} value={form.numOfShareholders ?? ""}

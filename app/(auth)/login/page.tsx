@@ -186,7 +186,7 @@ export default function LoginPage() {
                   tabIndex={-1}
                   onClick={() => setShowPassword((v) => !v)}
                   className="absolute left-3 top-1/2 -translate-y-1/2 transition-colors"
-                  style={{ color: "rgba(255,255,255,0.35)" }}
+                  style={{ color: "rgba(9, 5, 55, 0.35)" }}
                   aria-label={showPassword ? "إخفاء" : "إظهار"}
                 >
                   {showPassword

@@ -120,12 +120,21 @@ export default function AdminOwnershipsPage() {
   }, [ownerships, apartments, units, search, unitAptIds]);
 
   /* ── summary stats ── */
-  const totalOwnerships = ownerships.length;
+  // "إجمالي الملكيات" counts each FULLY-owned apartment (total = 100%) as ONE,
+  // regardless of how many shareholders split that 100% between them.
+  // e.g. apartment split 50% / 50% between two shareholders → counts as 1, not 2.
+  const totalOwnerships = useMemo(
+    () => Object.values(aptTotalPct).filter(pct => pct >= 100).length,
+    [aptTotalPct]
+  );
   const uniqueShareholders = new Set(ownerships.map(o => o.shareholderId)).size;
   const uniqueApartments   = new Set(ownerships.map(o => o.apartmentId)).size;
-  const avgPct = ownerships.length
-    ? (ownerships.reduce((s, o) => s + o.ownershipPercentage, 0) / ownerships.length).toFixed(1)
-    : "0";
+  const avgPct = useMemo(() => {
+  const totals = Object.values(aptTotalPct);
+  if (!totals.length) return "0";
+  const sum = totals.reduce((s, pct) => s + Math.min(pct, 100), 0);
+  return (sum / totals.length).toFixed(1);
+}, [aptTotalPct]);
 
   /* ── actions ── */
   async function handleAdd(e: React.FormEvent) {

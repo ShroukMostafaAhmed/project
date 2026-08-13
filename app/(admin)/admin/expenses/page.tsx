@@ -70,6 +70,10 @@ export default function AdminExpensesPage() {
   /* ── search ── */
   const [search, setSearch] = useState("");
 
+  /* ── فلتر الاسم من grouped endpoint ── */
+  const [groupedNames,   setGroupedNames]   = useState<string[]>([]);
+  const [filterByName,   setFilterByName]   = useState<string>(""); // الاسم المختار
+
   /* ── modals ── */
   const [showAdd,    setShowAdd]    = useState(false);
   const [editItem,   setEditItem]   = useState<FinancialTransactionDto|null>(null);
@@ -93,6 +97,13 @@ export default function AdminExpensesPage() {
   }, [activeCatId]);
 
   useEffect(() => { loadCategories(); }, []); // eslint-disable-line
+
+  /* ── تحميل الأسامي المجمّعة للفلتر ── */
+  useEffect(() => {
+    api.financialCategories.grouped()
+      .then(names => setGroupedNames(Array.isArray(names) ? names : []))
+      .catch(() => {});
+  }, []);
 
   // Reload categories when opening add modal to ensure they're fresh
   async function openAdd() {
@@ -140,17 +151,17 @@ export default function AdminExpensesPage() {
 
   /* ── filtered rows ── */
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return transactions.filter(t =>
+  const q = search.toLowerCase();
+  return transactions.filter(t => {
+    if (filterByName && !(t.categoryName ?? "").includes(filterByName)) return false;
+    return (
       !q ||
       (t.description  ?? "").toLowerCase().includes(q) ||
       (t.categoryName ?? "").toLowerCase().includes(q) ||
       String(t.auditNo ?? t.auditNu ?? "").includes(q)
     );
-  }, [transactions, search]);
-
-  /* ── Summary computed from filtered rows (accurate per category+date) ── */
-  // normalizeType handles raw API values (number OR string) → safe TransactionType
+  });
+}, [transactions, search, filterByName]);
   const getType = (t: FinancialTransactionDto): TransactionType =>
     normalizeType(t.transactionType ?? t.type ?? TransactionType.Expense);
 
@@ -365,6 +376,19 @@ export default function AdminExpensesPage() {
               </span>
             </div>
             <div className="flex items-center gap-2">
+              {/* فلتر الاسم من grouped */}
+              {groupedNames.length > 0 && (
+                <select
+                  value={filterByName}
+                  onChange={e => setFilterByName(e.target.value)}
+                  className="py-1.5 rounded-xl text-xs border focus:outline-none"
+                  style={{ ...iStyle(), paddingRight: 10, paddingLeft: 10, width: 160 }}>
+                  <option value="">كل الأسماء</option>
+                  {groupedNames.map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+              )}
               {/* inline search */}
               <div className="relative">
                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث..."
@@ -666,23 +690,7 @@ export default function AdminExpensesPage() {
               placeholder="مثال: مصروفات عموميات، إيرادات أحمد..."
               className={ic} style={iStyle()} />
           </div>
-          <div>
-            <label className="block text-xs font-bold mb-2" style={{ color:"var(--muted)" }}>النوع</label>
-            <div className="grid grid-cols-2 gap-2">
-              {([TransactionType.Expense, TransactionType.Revenue] as TransactionType[]).map(t => (
-                <button key={t} type="button"
-                  onClick={() => setCatForm(p => ({ ...p, type:t }))}
-                  className="py-2.5 rounded-xl text-sm font-semibold border-2 transition-all"
-                  style={catForm.type === t
-                    ? t === TransactionType.Revenue
-                      ? { borderColor:"#10b981", background:"rgba(16,185,129,.1)", color:"#10b981" }
-                      : { borderColor:"#ef4444", background:"rgba(239,68,68,.1)",  color:"#ef4444" }
-                    : { borderColor:"var(--card-border)", background:"transparent", color:"var(--muted)" }}>
-                  {t === TransactionType.Revenue ? "إيداع" : "مصروف"}
-                </button>
-              ))}
-            </div>
-          </div>
+         
           {formErr && (
             <p className="text-xs p-2.5 rounded-lg"
               style={{ background:"rgba(239,68,68,.1)", color:"#ef4444" }}>

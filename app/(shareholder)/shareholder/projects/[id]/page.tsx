@@ -151,7 +151,7 @@ export default function ShareholderProjectDetailPage({ params }: { params: Promi
         )}
       </div>
 
-      {/* مش محتاجه المساهم يشوف كل الشقق */}
+     
 
     </DashboardShell>
   );
