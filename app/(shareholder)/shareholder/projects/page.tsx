@@ -13,19 +13,19 @@ import { UnitDto, ApartmentOwnershipDto } from "@/app/lib/types";
 interface ProjectGroup {
   unit:            UnitDto;
   ownerships:      ApartmentOwnershipDto[];
-  totalApartments: number;   // كل شقق الوحدة
-  myApartments:    number;   // شققي اللي ليا فيها حصة
-  sharePercentage: number;   // نسبتي في الوحدة من ShareholderUnit (صح)
-  sharesCount:     number;   // عدد أسهمي
+  totalApartments: number;
+  myApartments:    number;
+  sharePercentage: number;
+  sharesCount:     number;
 }
 
 export default function ShareholderProjectsPage() {
   const user          = getAuthUser();
   const shareholderId = user?.shareholderId ?? null;
 
-  const { ownerships,        loading: lo  } = useOwnershipsByShareholder(shareholderId);
-  const { units,             loading: lu  } = useUnits();
-  const { apartments,        loading: la  } = useApartments();
+  const { ownerships,      loading: lo  } = useOwnershipsByShareholder(shareholderId);
+  const { units,           loading: lu  } = useUnits();
+  const { apartments,      loading: la  } = useApartments();
   const { shareholderFull: shFull, loading: lsu } = useShareholderUnitsByShareholder(shareholderId);
   const loading = lo || lu || la || lsu;
 
@@ -37,15 +37,16 @@ export default function ShareholderProjectsPage() {
       const unit = units.find((u) => u.id === apt.unitId);
       if (!unit) return;
       if (!map.has(unit.id)) {
-        const unitEntry = shFull?.units?.find((u: { unitId: number }) => u.unitId === unit.id) as
-          { sharePercentage?: number; sharesCount?: number } | undefined;
+        const unitEntry = shFull?.units?.find(
+          (u: { unitId: number; sharePercentage?: number; sharesCount?: number }) => u.unitId === unit.id
+        );
         map.set(unit.id, {
           unit,
           ownerships:      [],
           totalApartments: unit.totalApartments,
           myApartments:    0,
           sharePercentage: unitEntry?.sharePercentage ?? 0,
-          sharesCount:     unitEntry?.sharesCount ?? 0,
+          sharesCount:     unitEntry?.sharesCount     ?? 0,
         });
       }
       const g = map.get(unit.id)!;
@@ -91,7 +92,6 @@ function ProjectCard({ project: p }: { project: ProjectGroup }) {
       <div className="h-1.5 w-full" style={{ background: "linear-gradient(90deg,#6366f1,#7c3aed,#a78bfa)" }} />
 
       <div className="p-5">
-        {/* Header */}
         <div className="flex items-center gap-3 mb-4">
           <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-md shadow-indigo-200 shrink-0"
             style={{ background: "linear-gradient(135deg,#6366f1,#7c3aed)" }}>
@@ -103,7 +103,6 @@ function ProjectCard({ project: p }: { project: ProjectGroup }) {
           </div>
         </div>
 
-        {/* Address */}
         {p.unit.address && (
           <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-4 bg-slate-50 rounded-lg px-2.5 py-1.5">
             <MapPin className="w-3 h-3 shrink-0 text-slate-300" />
@@ -111,29 +110,24 @@ function ProjectCard({ project: p }: { project: ProjectGroup }) {
           </div>
         )}
 
-        {/* Stats */}
         <div className="grid grid-cols-3 gap-2 mb-4">
-          {/* إجمالي شقق المشروع */}
           <div className="bg-slate-50 rounded-xl p-2.5 text-center border border-slate-100">
             <Home className="w-3.5 h-3.5 text-slate-400 mx-auto mb-1" />
             <p className="text-sm font-bold text-slate-700">{p.totalApartments}</p>
             <p className="text-[10px] text-slate-400 mt-0.5">إجمالي الشقق</p>
           </div>
-          {/* طوابق المشروع */}
           <div className="bg-slate-50 rounded-xl p-2.5 text-center border border-slate-100">
             <Users className="w-3.5 h-3.5 text-slate-400 mx-auto mb-1" />
             <p className="text-sm font-bold text-slate-700">{p.unit.numFloors}</p>
             <p className="text-[10px] text-slate-400 mt-0.5">الطوابق</p>
           </div>
-          {/* شققي فيها حصة */}
           <div className="bg-indigo-50 rounded-xl p-2.5 text-center border border-indigo-100">
-            <Home className="w-3.5 h-3.5 text-indigo-500 mx-auto mb-1" />
+            <Percent className="w-3.5 h-3.5 text-indigo-500 mx-auto mb-1" />
             <p className="text-sm font-bold text-indigo-700">{p.myApartments}</p>
             <p className="text-[10px] text-indigo-400 mt-0.5">شققي</p>
           </div>
         </div>
 
-        {/* CTA */}
         <Link href={`/shareholder/projects/${p.unit.id}`}
           className="flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "linear-gradient(135deg,#6366f1,#7c3aed)" }}>

@@ -26,7 +26,7 @@ export default function ShareholderHomePage() {
   const { ownerships, loading: lo } = useOwnershipsByShareholder(shareholderId);
   const { units,      loading: lu } = useUnits();
   const { apartments, loading: la } = useApartments();
-  const { shareholderUnits: shFull, loading: lsu } = useShareholderUnitsByShareholder(shareholderId);
+  const { shareholderFull: shFull, loading: lsu } = useShareholderUnitsByShareholder(shareholderId);
   const loading = lo || lu || la || lsu;
 
   const [expandedUnit, setExpandedUnit] = useState<number | null>(null);
