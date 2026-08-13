@@ -23,24 +23,23 @@ export const MOCK_UNITS: UnitDto[] = [
   { id: 3, code: "B1", name: "كمبوند الأندلس",  description: "مجمع سكني متكامل بالخدمات",      totalApartments: 48, numFloors: 6,  numApartmentsFloor: 8, address: "القاهرة، التجمع الخامس، الحي الأول"       },
 ];
 
-// ─── Apartments ──────────────────────────────────────────────────────────────
 export const MOCK_APARTMENTS: ApartmentDto[] = [
   // A1 - برج الياسمين
-  { id: 1,  apartmentNumber: "101", floor: "الأول",   unitId: 1, unitName: "برج الياسمين",  status: ApartmentStatus.Sold,             statusName: "مباع"           },
+  { id: 1,  apartmentNumber: "101", floor: "الأول",   unitId: 1, unitName: "برج الياسمين",  status: ApartmentStatus.Sold,             statusName: "مكتمل"           },
   { id: 2,  apartmentNumber: "102", floor: "الأول",   unitId: 1, unitName: "برج الياسمين",  status: ApartmentStatus.Rented,           statusName: "مؤجر"           },
   { id: 3,  apartmentNumber: "103", floor: "الأول",   unitId: 1, unitName: "برج الياسمين",  status: ApartmentStatus.Available,        statusName: "متاح"           },
-  { id: 4,  apartmentNumber: "201", floor: "الثاني",  unitId: 1, unitName: "برج الياسمين",  status: ApartmentStatus.Sold,             statusName: "مباع"           },
+  { id: 4,  apartmentNumber: "201", floor: "الثاني",  unitId: 1, unitName: "برج الياسمين",  status: ApartmentStatus.Sold,             statusName: "مكتمل"           },
   { id: 5,  apartmentNumber: "202", floor: "الثاني",  unitId: 1, unitName: "برج الياسمين",  status: ApartmentStatus.Available,        statusName: "متاح"           },
   { id: 6,  apartmentNumber: "301", floor: "الثالث",  unitId: 1, unitName: "برج الياسمين",  status: ApartmentStatus.UnderMaintenance, statusName: "تحت الصيانة"   },
   // A2 - برج النيل
-  { id: 7,  apartmentNumber: "101", floor: "الأول",   unitId: 2, unitName: "برج النيل",     status: ApartmentStatus.Sold,             statusName: "مباع"           },
+  { id: 7,  apartmentNumber: "101", floor: "الأول",   unitId: 2, unitName: "برج النيل",     status: ApartmentStatus.Sold,             statusName: "مكتمل"           },
   { id: 8,  apartmentNumber: "201", floor: "الثاني",  unitId: 2, unitName: "برج النيل",     status: ApartmentStatus.Rented,           statusName: "مؤجر"           },
   { id: 9,  apartmentNumber: "202", floor: "الثاني",  unitId: 2, unitName: "برج النيل",     status: ApartmentStatus.Available,        statusName: "متاح"           },
-  { id: 10, apartmentNumber: "301", floor: "الثالث",  unitId: 2, unitName: "برج النيل",     status: ApartmentStatus.Sold,             statusName: "مباع"           },
+  { id: 10, apartmentNumber: "301", floor: "الثالث",  unitId: 2, unitName: "برج النيل",     status: ApartmentStatus.Sold,             statusName: "مكتمل"           },
   // B1 - كمبوند الأندلس
   { id: 11, apartmentNumber: "A1",  floor: "الأرضي",  unitId: 3, unitName: "كمبوند الأندلس", status: ApartmentStatus.Rented,          statusName: "مؤجر"           },
   { id: 12, apartmentNumber: "A2",  floor: "الأرضي",  unitId: 3, unitName: "كمبوند الأندلس", status: ApartmentStatus.Available,       statusName: "متاح"           },
-  { id: 13, apartmentNumber: "B1",  floor: "الأول",   unitId: 3, unitName: "كمبوند الأندلس", status: ApartmentStatus.Sold,            statusName: "مباع"           },
+  { id: 13, apartmentNumber: "B1",  floor: "الأول",   unitId: 3, unitName: "كمبوند الأندلس", status: ApartmentStatus.Sold,            statusName: "مكتمل"           },
 ];
 
 // ─── Ownerships ──────────────────────────────────────────────────────────────

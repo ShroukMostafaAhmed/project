@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import DashboardShell from "@/app/components/layout/DashboardShell";
 import { CardSkeleton } from "@/app/components/ui/Skeleton";
-import { useOwnershipsByShareholder, useUnits, useApartments } from "@/app/lib/hooks";
+import { useOwnershipsByShareholder, useUnits, useApartments, useShareholderUnitsByShareholder } from "@/app/lib/hooks";
 import { getAuthUser } from "@/app/lib/auth";
 import { ApartmentStatusLabels, ApartmentStatusColors, UnitDto, ApartmentOwnershipDto, ApartmentDto } from "@/app/lib/types";
 
@@ -26,7 +26,8 @@ export default function ShareholderHomePage() {
   const { ownerships, loading: lo } = useOwnershipsByShareholder(shareholderId);
   const { units,      loading: lu } = useUnits();
   const { apartments, loading: la } = useApartments();
-  const loading = lo || lu || la;
+  const { shareholderUnits: shFull, loading: lsu } = useShareholderUnitsByShareholder(shareholderId);
+  const loading = lo || lu || la || lsu;
 
   const [expandedUnit, setExpandedUnit] = useState<number | null>(null);
 
@@ -54,7 +55,8 @@ export default function ShareholderHomePage() {
   }, [ownerships, apartments, units]);
 
   const totalOwned = projects.reduce((s, p) => s + p.ownerships.length, 0);
-  const totalPct   = projects.reduce((s, p) => s + p.totalPercentage, 0);
+  // النسبة الصحيحة من ShareholderUnit — مش مجموع نسب الشقق
+  const totalPct   = (shFull?.units ?? []).reduce((s, u) => s + (u.sharePercentage ?? 0), 0);
 
   /* ── loading ───────────────────────────────────── */
   if (loading) return (

@@ -7,10 +7,9 @@ export enum ApartmentStatus {
   UnderMaintenance = 3,
 }
 
-// Legacy labels kept for API compatibility (select in forms)
 export const ApartmentStatusLabels: Record<ApartmentStatus, string> = {
   [ApartmentStatus.Available]:        "متاح",
-  [ApartmentStatus.Sold]:             "مباع",
+  [ApartmentStatus.Sold]:             "مكتمل",
   [ApartmentStatus.Rented]:           "مؤجر",
   [ApartmentStatus.UnderMaintenance]: "تحت الصيانة",
 };
