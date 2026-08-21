@@ -99,10 +99,10 @@ export default function ShareholderUnitsPage() {
   }
 
   return (
-    <DashboardShell title="مساهمو الوحدات">
+    <DashboardShell title="مساهمين المشاريع">
       <PageHeader
-        title="مساهمو الوحدات"
-        subtitle="إدارة المساهمين المرتبطين بكل وحدة وعدد أسهمهم"
+        title="مساهمين المشاريع"
+        subtitle="إدارة المساهمين المرتبطين بكل مشروع وعدد أسهمهم"
         actions={
           <div className="flex gap-2">
             <button onClick={reload}
@@ -113,7 +113,7 @@ export default function ShareholderUnitsPage() {
             <button onClick={() => { setShowAdd(true); setFormErr(""); setForm({ shareholderId:"", unitId:"", sharesCount:"" }); }}
               className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl text-white"
               style={{ background:"linear-gradient(135deg,#6366f1,#7c3aed)", boxShadow:"0 3px 12px rgba(99,102,241,.3)" }}>
-              <Plus className="w-4 h-4" /> إضافة مساهم لوحدة
+              <Plus className="w-4 h-4" /> إضافة مساهم لمشروع
             </button>
           </div>
         }
@@ -149,7 +149,7 @@ export default function ShareholderUnitsPage() {
       <div className="mb-4 p-4 rounded-2xl border" style={cStyle()}>
         <label className="block text-xs font-semibold mb-2" style={{ color:"var(--muted)" }}>
           <Building2 className="w-3.5 h-3.5 inline ml-1" />
-          اختر وحدة لعرض مساهميها
+          اختر مشروع لعرض مساهميه
         </label>
         <div className="relative">
           <select
@@ -158,7 +158,7 @@ export default function ShareholderUnitsPage() {
             className="w-full px-4 py-3 rounded-xl text-sm border appearance-none focus:outline-none transition-all font-medium"
             style={iStyle()}
           >
-            <option value="">كل الوحدات ({shareholderUnits.length} سجل)</option>
+            <option value="">كل المشاريع ({shareholderUnits.length} سجل)</option>
             {units.map(u => {
               const count = shareholderUnits.filter(su => su.unitId === u.id).length;
               const shares = shareholderUnits.filter(su => su.unitId === u.id).reduce((s,su)=>s+su.sharesCount,0);
@@ -203,7 +203,7 @@ export default function ShareholderUnitsPage() {
               ))}
               {unitShareholders.length === 0 && (
                 <p className="col-span-4 text-xs text-center py-2" style={{ color:"var(--muted)" }}>
-                  لا يوجد مساهمون في هذه الوحدة
+                  لا يوجد مساهمون في هذا المشروع
                 </p>
               )}
             </div>
@@ -215,7 +215,7 @@ export default function ShareholderUnitsPage() {
       <div className="relative mb-4 max-w-sm">
         <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color:"var(--muted)" }} />
         <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="بحث بالاسم أو الوحدة..."
+          placeholder="بحث بالاسم أو المشروع..."
           className="w-full pr-9 pl-8 py-2 rounded-xl text-sm border focus:outline-none"
           style={iStyle()}
         />
@@ -245,7 +245,7 @@ export default function ShareholderUnitsPage() {
               <Users className="w-4 h-4" style={{ color:"#6366f1" }} />
               <span className="text-sm font-semibold" style={{ color:"var(--foreground)" }}>
                 {filterUnit
-                  ? `مساهمو ${units.find(u=>String(u.id)===filterUnit)?.name ?? "الوحدة"}`
+                  ? `مساهمو ${units.find(u=>String(u.id)===filterUnit)?.name ?? "المشروع"}`
                   : "جميع السجلات"}
               </span>
             </div>
@@ -259,7 +259,7 @@ export default function ShareholderUnitsPage() {
             <table className="min-w-full text-sm">
               <thead>
                 <tr style={{ borderBottom:"1px solid var(--card-border)" }}>
-                  {["م","المساهم","الوحدة","عدد الأسهم","إجراءات"].map(h => (
+                  {["م","المساهم","المشروع","عدد الأسهم","إجراءات"].map(h => (
                     <th key={h} className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide whitespace-nowrap"
                       style={{ color:"var(--muted)", background:"rgba(128,128,128,.04)" }}>
                       {h}
@@ -300,7 +300,7 @@ export default function ShareholderUnitsPage() {
                     <td className="px-4 py-3.5">
                       <span className="text-xs px-2.5 py-1 rounded-full"
                         style={{ background:"rgba(14,165,233,.1)", color:"#38bdf8" }}>
-                        {su.unitName ?? `وحدة #${su.unitId}`}
+                        {su.unitName ?? `مشروع #${su.unitId}`}
                       </span>
                     </td>
 
@@ -349,7 +349,7 @@ export default function ShareholderUnitsPage() {
       )}
 
       {/* ── Add Modal ── */}
-      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="إضافة مساهم لوحدة">
+      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="إضافة مساهم لمشروع">
         <form onSubmit={handleAdd} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold mb-1.5" style={{ color:"var(--muted)" }}>
@@ -367,12 +367,12 @@ export default function ShareholderUnitsPage() {
 
           <div>
             <label className="block text-xs font-semibold mb-1.5" style={{ color:"var(--muted)" }}>
-              الوحدة <span className="text-red-400">*</span>
+              المشروع <span className="text-red-400">*</span>
             </label>
             <select required value={form.unitId}
               onChange={e => setForm(p => ({ ...p, unitId:e.target.value }))}
               className="w-full px-3.5 py-2.5 rounded-xl text-sm border focus:outline-none" style={iStyle()}>
-              <option value="">اختر وحدة...</option>
+              <option value="">اختر مشروع...</option>
               {units.map(u => (
                 <option key={u.id} value={u.id}>{u.name ?? u.code}</option>
               ))}
@@ -418,7 +418,7 @@ export default function ShareholderUnitsPage() {
               <p className="text-sm font-bold" style={{ color:"var(--foreground)" }}>
                 {editItem.shareholderName ?? `#${editItem.shareholderId}`}
               </p>
-              <p className="text-xs mt-1" style={{ color:"var(--muted)" }}>الوحدة</p>
+              <p className="text-xs mt-1" style={{ color:"var(--muted)" }}>المشروع</p>
               <p className="text-sm font-bold" style={{ color:"var(--foreground)" }}>
                 {editItem.unitName ?? `#${editItem.unitId}`}
               </p>

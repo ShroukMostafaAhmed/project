@@ -80,26 +80,21 @@ export default function AdminFinancePage() {
   const [auditFormErr,   setAuditFormErr]   = useState("");
   const [auditForm, setAuditForm] = useState({ name: "", fromDate: "", toDate: "" });
 
-  /* shareholders tab state */
   const [shReport,   setShReport]   = useState<ShareholderFinanceReportDto[]>([]);
   const [shLoading,  setShLoading]  = useState(false);
   const [shError,    setShError]    = useState("");
   const [expandedSh, setExpandedSh] = useState<number | null>(null);
-  // جرود الوحدات لكل مساهم مفتوح — map: unitId → UnitAuditDto[]
   const [shUnitAudits, setShUnitAudits] = useState<Record<number, UnitAuditDto[]>>({});
-  // مدفوعات الجرد — map: `${unitId}-${auditId}-${shareholderId}` → paid amount
   const [shPayments, setShPayments] = useState<Record<string, number>>({});
-  // cache لمنع تكرار تحميل finances لنفس الوحدة
   const [shFinancesLoaded, setShFinancesLoaded] = useState<Record<number, boolean>>({});
 
-  /* سداد — مودال إضافة دفعة لمساهم على جرد محدد */
   const [showPayModal, setShowPayModal] = useState(false);
   const [payTarget,    setPayTarget]    = useState<{
     shareholderId:   number;
     shareholderName: string | null;
     unitId:          number;
     unitName:        string | null;
-    auditId:         number | null;   // null = سداد عام بدون ربط بجرد
+    auditId:         number | null;   
     auditName:       string;
     maxAmount:       number;
   } | null>(null);
@@ -284,11 +279,9 @@ export default function AdminFinancePage() {
     [unitAudits]
   );
 
-  // هل في جرد Pending حالياً للوحدة — يمنع إنشاء جرد جديد
   const hasPendingAudit = unitAudits.some(a => a.status === UnitAuditStatus.Pending);
 
   function openAuditModal() {
-    // fromDate تتحدد تلقائياً = اليوم اللي بعد آخر جرد (منع التداخل)
     const autoFrom = lastAudit
       ? (() => { const d = new Date(lastAudit.toDate); d.setDate(d.getDate() + 1); return toDateOnlyString(d); })()
       : "";
@@ -322,13 +315,13 @@ export default function AdminFinancePage() {
     : "";
 
   const tabs = [
-    { key: "units"        as const, label: "ماليه الوحدات",   icon: Building2 },
+    { key: "units"        as const, label: "ماليه المشاريع",   icon: Building2 },
     { key: "shareholders" as const, label: "ماليه المساهمين", icon: Users     },
   ];
 
   return (
     <DashboardShell title="الماليه">
-      <PageHeader title="الماليه" subtitle="متابعة المديونيات والمدفوعات لكل وحدة ومساهم" />
+      <PageHeader title="الماليه" subtitle="متابعة المديونيات والمدفوعات لكل مشروع ومساهم" />
 
       {/* ══ Tabs ══ */}
       <div className="flex gap-1 p-1 rounded-2xl mb-5 w-fit no-print" style={{ background: "var(--input-bg)", border: "1px solid var(--card-border)" }}>
@@ -347,19 +340,15 @@ export default function AdminFinancePage() {
         })}
       </div>
 
-      {/* ════════════════════════════════════════════
-          TAB 1 — ماليه الوحدات
-      ════════════════════════════════════════════ */}
+    
       {activeTab === "units" && (
         <>
-          {/* ── شريط الوحدات + الأزرار ── */}
           {luUnits ? (
             <div className="flex gap-2 mb-6">
               {[...Array(3)].map((_, i) => <div key={i} className="h-9 w-24 rounded-xl animate-pulse" style={{ background: "rgba(128,128,128,.1)" }} />)}
             </div>
           ) : (
             <div className="flex flex-wrap gap-2 mb-6 items-center justify-between">
-              {/* أزرار الوحدات */}
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => { setActiveUnitId("all"); setUnitSearch(""); setSummary(null); }}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-all"
@@ -378,7 +367,7 @@ export default function AdminFinancePage() {
                     style={activeUnitId === u.id
                       ? { background: "linear-gradient(135deg,#6366f1,#7c3aed)", color: "#fff", borderColor: "transparent", boxShadow: "0 3px 12px rgba(99,102,241,.3)" }
                       : { ...cStyle(), color: "var(--muted)" }}>
-                    {u.name ?? u.code ?? `وحدة ${u.id}`}
+                    {u.name ?? u.code ?? `مشروع ${u.id}`}
                   </button>
                 ))}
               </div>
@@ -389,7 +378,6 @@ export default function AdminFinancePage() {
                   style={{ background: "linear-gradient(135deg,#6366f1,#7c3aed)", boxShadow: "0 3px 12px rgba(99,102,241,.3)" }}>
                   <Plus className="w-4 h-4" /> إضافة حركة
                 </button>
-                {/* زرار جرد جديد — يظهر فقط لو وحدة معينة مختارة ومفيش جرد Pending */}
                 {activeUnitId !== "all" && activeUnitId !== null && (
                   <button onClick={openAuditModal} disabled={hasPendingAudit}
                     className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl transition-all"
@@ -410,12 +398,11 @@ export default function AdminFinancePage() {
             {[
               { label: "إجمالي المديونية",    value: summary ? summary.totalCost                : totalDebt,
                 clr: "#ef4444", bg: "rgba(239,68,68,.1)",   icon: TrendingDown,
-                sub: summary ? "التكلفة الكاملة للوحدة" : "مجموع المبالغ المطلوبة" },
+                sub: summary ? "التكلفة الكاملة للمشروع" : "مجموع المبالغ المطلوبة" },
               { label: "المسدَّد",             value: summary ? summary.totalPaymentsReceived    : totalPaid,
                 clr: "#10b981", bg: "rgba(16,185,129,.1)",  icon: CreditCard,
                 sub: "إجمالي الدفعات المستلمة" },
               { label: "المتبقي (الدين)",
-                // ⚠️ defensive fix: الباك بيرجع remainingBalance سالب أحياناً (حساب مقلوب) — Math.max(0,...) حماية مؤقتة
                 value: summary ? Math.max(0, summary.totalCost - summary.totalPaymentsReceived) : remaining,
                 clr: (summary ? Math.max(0, summary.totalCost - summary.totalPaymentsReceived) : remaining) > 0 ? "#f59e0b" : "#10b981",
                 bg:  (summary ? Math.max(0, summary.totalCost - summary.totalPaymentsReceived) : remaining) > 0 ? "rgba(245,158,11,.1)" : "rgba(16,185,129,.1)",
@@ -423,7 +410,7 @@ export default function AdminFinancePage() {
                 sub: (summary ? Math.max(0, summary.totalCost - summary.totalPaymentsReceived) : remaining) <= 0 ? "تم السداد بالكامل ✓" : "مستحق الدفع" },
               { label: "مصروفات المشروع",     value: summary ? summary.totalProjectExpenses     : 0,
                 clr: "#6366f1", bg: "rgba(99,102,241,.1)",  icon: BadgeDollarSign,
-                sub: summary ? "مصاريف تشغيلية تراكمية" : "اختر وحدة لعرض التفاصيل" },
+                sub: summary ? "مصاريف تشغيلية تراكمية" : "اختر مشروع لعرض التفاصيل" },
             ].map(({ label, value, clr, bg, icon: Icon, sub }) => (
               <div key={label} className="rounded-2xl p-4 flex items-start gap-3" style={cStyle()}>
                 <div className="p-2.5 rounded-xl shrink-0 mt-0.5" style={{ background: bg }}>
@@ -444,7 +431,6 @@ export default function AdminFinancePage() {
             </div>
           )}
 
-          {/* ════ سكشن جرود الوحدة ════ */}
           {activeUnitId !== "all" && activeUnitId !== null && (
             <div className="rounded-2xl border overflow-hidden mb-5 shadow-sm" style={cStyle()}>
               {/* Header */}
@@ -470,7 +456,7 @@ export default function AdminFinancePage() {
               ) : unitAudits.length === 0 ? (
                 <div className="py-10 text-center">
                   <Calendar className="w-8 h-8 mx-auto mb-2 opacity-25" style={{ color: "var(--muted)" }} />
-                  <p className="text-sm" style={{ color: "var(--muted)" }}>لا توجد جرود لهذه الوحدة بعد</p>
+                  <p className="text-sm" style={{ color: "var(--muted)" }}>لا توجد جرود لهذا المشروع بعد</p>
                   <button onClick={openAuditModal}
                     className="mt-3 text-xs font-semibold px-3 py-1.5 rounded-lg"
                     style={{ background: "rgba(16,185,129,.1)", color: "#10b981", border: "1px solid rgba(16,185,129,.2)" }}>
@@ -715,7 +701,6 @@ export default function AdminFinancePage() {
                       onClick={() => {
                         const newId = isExpanded ? null : sh.shareholderId;
                         setExpandedSh(newId);
-                        // لما مساهم يتفتح — حمّل جرود كل وحدة من وحداته
                         if (newId && sh.units) {
                           sh.units.forEach(u => {
                             if (!shUnitAudits[u.unitId]) {
@@ -726,7 +711,6 @@ export default function AdminFinancePage() {
                                 .catch(() => {});
                             }
                           });
-                          // حمّل الحركات عشان نحسب المدفوعات لكل جرد (مرة واحدة بس لكل وحدة)
                           if (sh.units.length > 0) {
                             const unitIds = sh.units
                               .map(u => u.unitId)
@@ -785,24 +769,21 @@ export default function AdminFinancePage() {
                         : <ChevronDown className="w-4 h-4 shrink-0" style={{ color: "var(--muted)" }} />}
                     </div>
 
-                    {/* Expanded — وحدات المساهم */}
                     {isExpanded && sh.units && sh.units.length > 0 && (
                       <div className="border-t px-5 pb-5 pt-3 space-y-4" style={{ borderColor: "var(--card-border)" }}>
                         {sh.units.map(u => {
                           const uDebt = u.debtAmount > 0;
                           return (
                             <div key={u.unitId} className="rounded-xl p-4" style={{ background: "rgba(128,128,128,.03)", border: "1px solid var(--card-border)" }}>
-                              {/* اسم الوحدة + نسبة */}
                               <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
                                 <p className="font-semibold text-sm" style={{ color: "var(--foreground)" }}>
-                                  {u.unitName ?? `وحدة ${u.unitId}`}
+                                  {u.unitName ?? `مشروع ${u.unitId}`}
                                   {u.unitCode && <span className="text-xs font-normal mr-1.5" style={{ color: "var(--muted)" }}>({u.unitCode})</span>}
                                 </p>
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(99,102,241,.1)", color: "#6366f1" }}>
                                     {u.sharesCount} سهم — {u.sharePercentage?.toFixed(1)}%
                                   </span>
-                                  {/* زرار سداد كامل على الوحدة بدون ربط بجرد */}
                                   {u.debtAmount > 0 && (
                                     <button
                                       onClick={() => openPayModal({
@@ -854,7 +835,6 @@ export default function AdminFinancePage() {
 
                               {/* ── تفصيل الجرود مع السداد ── */}
                               {(() => {
-                                // الجرود المقفولة للوحدة دي — من الـ state الخاص بتاب المساهمين
                                 const uAudits = (shUnitAudits[u.unitId] ?? [])
                                   .filter(a => a.status === UnitAuditStatus.Closed)
                                   .sort((a, b) => new Date(a.fromDate).getTime() - new Date(b.fromDate).getTime());
@@ -1010,12 +990,11 @@ export default function AdminFinancePage() {
               <span className="mr-2 opacity-60 font-normal">— لإضافة سداد: افتح كارت المساهم واضغط "سداد" جنب الجرد</span>
             </div>
           )}
-          {/* الوحدة */}
           <div>
-            <label className="block text-xs font-bold mb-1.5" style={{ color: "var(--muted)" }}>الوحدة <span className="text-red-400">*</span></label>
+            <label className="block text-xs font-bold mb-1.5" style={{ color: "var(--muted)" }}>المشروع <span className="text-red-400">*</span></label>
             <select required value={form.unitId} onChange={e => setForm(p => ({ ...p, unitId: e.target.value }))} className={ic} style={iStyle()}>
-              <option value="">— اختر الوحدة —</option>
-              {units.map(u => <option key={u.id} value={u.id}>{u.name ?? u.code ?? `وحدة ${u.id}`}</option>)}
+              <option value="">— اختر المشروع —</option>
+              {units.map(u => <option key={u.id} value={u.id}>{u.name ?? u.code ?? `مشروع ${u.id}`}</option>)}
             </select>
           </div>
          
@@ -1168,7 +1147,7 @@ export default function AdminFinancePage() {
                 ? { background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.15)" }
                 : { background: "rgba(99,102,241,.06)", border: "1px solid rgba(99,102,241,.15)" }}>
               <p className="text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>
-                {payTarget.auditId ? "الدين المتبقي في هذا الجرد" : "سداد عام على الوحدة"}
+                {payTarget.auditId ? "الدين المتبقي في هذا الجرد" : "سداد عام على المشروع"}
               </p>
               <p className="text-xl font-bold" style={{ color: payTarget.auditId ? "#ef4444" : "#6366f1" }}>
                 {formatCurrency(payTarget.maxAmount)}

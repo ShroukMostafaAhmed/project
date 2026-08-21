@@ -85,8 +85,8 @@ export default function AdminProjectsPage() {
   return (
     <DashboardShell title="المشاريع">
       <PageHeader
-        title="إدارة المشاريع"
-        subtitle={`${units.length} وحدة عقارية`}
+        title=" كارت وصف المشاريع"
+        subtitle={`${units.length}مشروع `}
         actions={
           <div className="flex gap-2">
             <button onClick={reload}
@@ -97,7 +97,7 @@ export default function AdminProjectsPage() {
             <button onClick={() => setShowCreate(true)}
               className="flex items-center gap-2 text-sm font-semibold text-white px-4 py-2 rounded-xl transition-colors"
               style={{ background: "linear-gradient(135deg,#6366f1,#7c3aed)", boxShadow: "0 3px 12px rgba(99,102,241,.35)" }}>
-              <Plus className="w-4 h-4" /> إضافة وحدة
+              <Plus className="w-4 h-4" /> إضافة مشروع
             </button>
           </div>
         }
@@ -125,7 +125,7 @@ export default function AdminProjectsPage() {
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-3 text-slate-400">
           <Building2 className="w-14 h-14 text-slate-200" />
-          <p className="text-slate-500 font-medium">لا توجد وحدات</p>
+          <p className="text-slate-500 font-medium">لا توجد مشاريع</p>
           <button onClick={() => setShowCreate(true)}
             className="mt-1 text-sm text-indigo-600 hover:underline">
             أضف أول مشروع →
@@ -154,7 +154,7 @@ export default function AdminProjectsPage() {
       )}
 
       {/* Create Modal */}
-      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="إضافة وحدة جديدة" size="lg">
+      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="إضافة مشروع جديد" size="lg">
         <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
           {/* ── Text fields: code is auto-generated & read-only ────────────── */}
@@ -245,7 +245,7 @@ export default function AdminProjectsPage() {
 
       {/* Delete */}
       <Modal open={!!deleteId} onClose={() => setDeleteId(null)} title="تأكيد الحذف" size="sm">
-        <p className="text-sm text-slate-600 mb-5">هل أنت متأكد من حذف هذه الوحدة؟ لا يمكن التراجع.</p>
+        <p className="text-sm text-slate-600 mb-5">هل أنت متأكد من حذف هذا المشروع لا يمكن التراجع.</p>
         <div className="flex gap-2">
           <button onClick={handleDelete}
             className="flex-1 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors">

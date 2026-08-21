@@ -159,7 +159,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
           {/* Stats */}
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label:"الوحدات المرتبط بها", value:units.length,      clr:"#6366f1", bg:"rgba(99,102,241,.1)",  icon:Building2 },
+              { label:"المشاريع المرتبط بها", value:units.length,      clr:"#6366f1", bg:"rgba(99,102,241,.1)",  icon:Building2 },
               { label:"إجمالي الملكيات في الشقق",  value:`${totalPct.toFixed(1)}%`, clr:"#7c3aed", bg:"rgba(124,58,237,.1)", icon:Percent },
               { label:"إجمالي الأسهم",   value:totalShares,       clr:"#0ea5e9", bg:"rgba(14,165,233,.1)",  icon:Hash },
             ].map(({ label, value, clr, bg, icon:Icon }) => (
@@ -181,7 +181,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
               style={{ borderColor:"var(--card-border)", background:"rgba(128,128,128,.04)" }}>
               <Building2 className="w-4 h-4" style={{ color:"#6366f1" }} />
               <h3 className="text-sm font-semibold" style={{ color:"var(--foreground)" }}>
-                الوحدات المرتبط بها
+                المشاريع المرتبط بها
               </h3>
               <span className="text-xs px-2 py-0.5 rounded-full"
                 style={{ background:"rgba(99,102,241,.1)", color:"#6366f1" }}>
@@ -192,7 +192,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
             {units.length === 0 ? (
               <div className="py-10 text-center flex flex-col items-center gap-2">
                 <AlertCircle className="w-8 h-8 opacity-20" style={{ color:"var(--muted)" }} />
-                <p className="text-sm" style={{ color:"var(--muted)" }}>لا توجد وحدات مرتبطة</p>
+                <p className="text-sm" style={{ color:"var(--muted)" }}>لا توجد مشاريع مرتبطة</p>
               </div>
             ) : (
               <div className="divide-y" style={{ borderColor:"var(--card-border)" }}>
@@ -209,7 +209,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                         </div>
                         <div>
                           <p className="text-sm font-semibold" style={{ color:"var(--foreground)" }}>
-                            {u.unitName ?? `وحدة #${u.unitId}`}
+                            {u.unitName ?? `مشروع #${u.unitId}`}
                           </p>
                           {u.unitCode && (
                             <p className="text-[10px] font-mono" style={{ color:"var(--muted)" }}>{u.unitCode}</p>

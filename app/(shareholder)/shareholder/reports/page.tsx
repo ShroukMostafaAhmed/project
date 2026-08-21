@@ -56,7 +56,6 @@ export default function ShareholderReportsPage() {
         subtitle="تقارير ملكياتي المالية (للعرض والطباعة)"
       />
 
-      {/* Summary cards — ملاحظة: الأرقام المالية ستظهر لما الباك يربطها بجرود الوحدات */}
 
       {/* Search + filters */}
       <div className="flex flex-wrap gap-2 mb-4 no-print">

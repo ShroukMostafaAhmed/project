@@ -23,7 +23,6 @@ export default function ShareholderFinancePage() {
   const [error,     setError]     = useState("");
   const [expanded,  setExpanded]  = useState<number | null>(null);
 
-  // جرود لكل وحدة — map: unitId → UnitAuditDto[]
   const [unitAudits, setUnitAudits] = useState<Record<number, import("@/app/lib/types").UnitAuditDto[]>>({});
 
   async function load() {
@@ -38,7 +37,6 @@ export default function ShareholderFinancePage() {
 
   useEffect(() => { load(); }, [shareholderId]); // eslint-disable-line
 
-  // لما وحدة تتفتح — حمّل جرودها
   function toggleUnit(unitId: number) {
     setExpanded(p => p === unitId ? null : unitId);
     if (!unitAudits[unitId]) {
@@ -66,7 +64,7 @@ export default function ShareholderFinancePage() {
   return (
     <DashboardShell title="الماليه">
       <PageHeader title="وضعي المالي"
-        subtitle="ديونك ومدفوعاتك في كل وحدة"
+        subtitle="ديونك ومدفوعاتك في كل مشروع"
         actions={
           <button onClick={load} className="w-9 h-9 rounded-xl border flex items-center justify-center" style={cStyle()}>
             <RefreshCw className="w-4 h-4" style={{ color: "var(--muted)" }} />
@@ -127,7 +125,7 @@ export default function ShareholderFinancePage() {
                     {(u.unitName ?? "؟")[0]}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-bold text-sm" style={{ color: "var(--foreground)" }}>{u.unitName ?? `وحدة ${u.unitId}`}</p>
+                    <p className="font-bold text-sm" style={{ color: "var(--foreground)" }}>{u.unitName ?? `مشروع ${u.unitId}`}</p>
                     <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
                       {u.sharesCount} سهم — {u.sharePercentage?.toFixed(1)}%
                     </p>

@@ -135,7 +135,7 @@ let MOCK_UNIT_AUDITS: UnitAuditDto[] = [
   {
     id: 1001,
     unitId: 1,
-    unitName: "وحدة 1",
+    unitName: "مشروع 1",
     name: "جرد 1",
     fromDate: "2026-07-01",
     toDate:   "2026-07-31",
@@ -152,7 +152,7 @@ let MOCK_UNIT_AUDITS: UnitAuditDto[] = [
   {
     id: 1002,
     unitId: 1,
-    unitName: "وحدة 1",
+    unitName: "مشروع 1",
     name: "جرد 2",
     fromDate: "2026-08-01",
     toDate:   "2026-08-31",
@@ -512,8 +512,7 @@ export const api = {
       () => { MOCK_AUDITS = MOCK_AUDITS.filter(a => a.id !== id); }
     ),
   },
-  // ─── Unit Audits (جرد الوحدة) — ⚠️ endpoints مطلوبة من الباك ──────────────
-  // بيستخدم withAlwaysFallback مؤقتاً لحد ما الباك يجهز
+  
   unitAudits: {
     list: (unitId: number) => withAlwaysFallback(
       () => request<UnitAuditDto[]>(`/Units/${unitId}/audits`),
@@ -525,7 +524,7 @@ export const api = {
           {
             id:        unitId * 1000 + 1,
             unitId,
-            unitName:  `وحدة ${unitId}`,
+            unitName:  `مشروع ${unitId}`,
             name:      "جرد 1",
             fromDate:  "2026-07-01",
             toDate:    "2026-07-31",
@@ -539,7 +538,7 @@ export const api = {
           {
             id:        unitId * 1000 + 2,
             unitId,
-            unitName:  `وحدة ${unitId}`,
+            unitName:  `مشروع ${unitId}`,
             name:      "جرد 2",
             fromDate:  "2026-08-01",
             toDate:    "2026-08-31",
@@ -556,9 +555,8 @@ export const api = {
     create: (unitId: number, data: CreateUnitAuditDto) => withAlwaysFallback(
       () => request<UnitAuditDto>(`/Units/${unitId}/audits`, { method: "POST", body: JSON.stringify(data) }),
       () => {
-        // تحقق mock: لو فيه جرد Pending للوحدة دي يرفض
         const hasPending = MOCK_UNIT_AUDITS.some(a => a.unitId === unitId && a.status === 0);
-        if (hasPending) throw new Error("يوجد جرد منتظر بالفعل لهذه الوحدة — انتظر حتى يتقفل أولاً");
+        if (hasPending) throw new Error("يوجد جرد منتظر بالفعل لهذا المشروع — انتظر حتى يتقفل أولاً");
         const next: UnitAuditDto = {
           id:        Date.now(),
           unitId,
@@ -611,7 +609,6 @@ export const api = {
     ),
   },
 
-  // ─── Finances (ماليه الوحدات) ─────────────────────────────────────────────
   finances: {
     list: (params?: { unitId?: number; shareholderId?: number; type?: FinanceType }) => {
       const q = new URLSearchParams();
@@ -650,12 +647,33 @@ export const api = {
         `/ShareholderContracts/by-shareholder-contracts/${shareholderId}`
       ),
 
-    upload: (shareholderId: number, file: File, description?: string, contractType?: string) => {
+    byUnit: (unitId: number) =>
+      request<ShareholderContractDto[]>(
+        `/ShareholderContracts/by-unit-contracts/${unitId}`
+      ),
+
+    byUnitGrouped: (unitId: number) =>
+      request<Record<string, ShareholderContractDto[]>>(
+        `/ShareholderContracts/by-unit-contracts-grouped/${unitId}`
+      ),
+
+    upload: (
+      shareholderId: number,
+      file: File,
+      description?: string,
+      contractType?: string,
+      unitId?: number,
+      folderName?: string,
+      files?: File[],
+    ) => {
       const form = new FormData();
-      form.append("file", file);
       form.append("shareholderId", String(shareholderId));
-      if (description)  form.append("description", description);
+      form.append("file", file);
+      if (description)  form.append("description",  description);
       if (contractType) form.append("contractType", contractType);
+      if (unitId !== undefined) form.append("unitId", String(unitId));
+      if (folderName)   form.append("folderName",   folderName);
+      if (files?.length) files.forEach(f => form.append("files", f));
       return fetch(`${BASE_URL}/ShareholderContracts/upload-contract`, {
         method: "POST",
         headers: { ...getAuthHeaders() },
@@ -678,6 +696,19 @@ export const api = {
         return res.blob();
       }),
 
+    downloadFolder: (params: { unitId?: number; shareholderId?: number; folderName?: string }) => {
+      const q = new URLSearchParams();
+      if (params.unitId        !== undefined) q.set("unitId",        String(params.unitId));
+      if (params.shareholderId !== undefined) q.set("shareholderId", String(params.shareholderId));
+      if (params.folderName)                  q.set("folderName",    params.folderName);
+      return fetch(`${BASE_URL}/ShareholderContracts/download-folder?${q}`, {
+        headers: getAuthHeaders(),
+      }).then(async (res) => {
+        if (!res.ok) throw new Error(`${res.status}`);
+        return res.blob();
+      });
+    },
+
     update: (id: number, data: UpdateContractDto) =>
       request<ShareholderContractDto>(`/ShareholderContracts/update/${id}`, {
         method: "PUT",
@@ -686,5 +717,13 @@ export const api = {
 
     delete: (id: number) =>
       request<void>(`/ShareholderContracts/delete/${id}`, { method: "DELETE" }),
+
+    deleteFolder: (params: { unitId?: number; shareholderId?: number; folderName?: string }) => {
+      const q = new URLSearchParams();
+      if (params.unitId        !== undefined) q.set("unitId",        String(params.unitId));
+      if (params.shareholderId !== undefined) q.set("shareholderId", String(params.shareholderId));
+      if (params.folderName)                  q.set("folderName",    params.folderName);
+      return request<void>(`/ShareholderContracts/delete-folder?${q}`, { method: "DELETE" });
+    },
   },
 };

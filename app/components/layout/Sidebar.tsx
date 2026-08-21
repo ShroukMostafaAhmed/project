@@ -13,15 +13,15 @@ interface NavItem { href: string; label: string; icon: React.ElementType; }
 
 const adminNav: NavItem[] = [
   { href: "/admin/dashboard",        label: "الرئيسية",       icon: LayoutDashboard },
-  { href: "/admin/users",            label: "المساهمين",      icon: Users           },
   { href: "/admin/projects",         label: "المشاريع",       icon: Building2       },
-  { href: "/admin/shareholder-units",label: "مساهمو الوحدات", icon: Key             },
-  { href: "/admin/ownerships",       label: "الملكيات",       icon: KeyRound        },
+  { href: "/admin/users",            label: "المساهمين",      icon: Users           },
+  { href: "/admin/shareholder-units",label: "مساهمين المشاريع", icon: Key             },
+  { href: "/admin/ownerships",       label: "ملكية المساهمين",       icon: KeyRound        },
   { href: "/admin/finance",          label: "الماليه",        icon: Wallet          },
   { href: "/admin/expenses",         label: "المصاريف",       icon: Receipt         },
   { href: "/admin/analysis",         label: "التحليلات",      icon: BarChart3       },
   { href: "/admin/reports",          label: "التقارير",       icon: FileText        },
-  { href: "/admin/contracts",        label: "العقود",         icon: FileText        },
+  { href: "/admin/contracts",        label: "عقود الملكية",         icon: FileText        },
 ];
 
 const shareholderNav: NavItem[] = [

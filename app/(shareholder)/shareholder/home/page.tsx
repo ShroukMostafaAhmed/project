@@ -132,7 +132,7 @@ export default function ShareholderHomePage() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-lg font-bold text-slate-800">مشاريعي</h2>
-          <p className="text-xs text-slate-400 mt-0.5">{projects.length} وحدة عقارية مشترك فيها</p>
+          <p className="text-xs text-slate-400 mt-0.5">{projects.length}مشروع مشترك فيه</p>
         </div>
         <Link
           href="/shareholder/projects"

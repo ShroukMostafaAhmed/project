@@ -215,7 +215,7 @@ export default function AdminUsersPage() {
         <form onSubmit={handleCreate} className="space-y-3">
           {[
             { name: "fullName", label: "الاسم الكامل", required: true },
-            { name: "nationalId", label: "الرقم القومي", required: true },
+            { name: "nationalId", label: "الرقم القومي", required: false },
             { name: "phone", label: "الهاتف", required: false },
             { name: "email", label: "البريد الإلكتروني", required: false },
             { name: "address", label: "العنوان", required: false },

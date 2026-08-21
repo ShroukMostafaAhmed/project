@@ -76,7 +76,7 @@ export default function AdminAnalysisPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-        <Card title="الشقق والطوابق لكل وحدة" sub="مقارنة الوحدات العقارية">
+        <Card title="الشقق والطوابق لكل مشروع" sub="مقارنة المشاريع ">
           {aptPerUnit.length > 0 ? (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={aptPerUnit}>
@@ -132,7 +132,7 @@ export default function AdminAnalysisPage() {
           </ResponsiveContainer>
         </Card>
 
-        <Card title="مؤشر اكتمال الوحدات" sub="نسبة الشقق المضافة من الإجمالي">
+        <Card title="مؤشر اكتمال المشاريع" sub="نسبة الشقق المضافة من الإجمالي">
           {radarData.length > 0 ? (
             <ResponsiveContainer width="100%" height={220}>
               <RadarChart data={radarData}>
@@ -148,7 +148,7 @@ export default function AdminAnalysisPage() {
           ) : <Empty />}
         </Card>
 
-        <Card title="علاقة الطوابق بالشقق" sub="توزيع الوحدات — حجم النقطة = الإجمالي">
+        <Card title="علاقة الطوابق بالشقق" sub="توزيع المشاريع — حجم النقطة = الإجمالي">
           {scatterData.length > 0 ? (
             <ResponsiveContainer width="100%" height={220}>
               <ScatterChart>

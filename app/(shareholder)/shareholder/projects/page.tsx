@@ -67,7 +67,7 @@ export default function ShareholderProjectsPage() {
 
   return (
     <DashboardShell title="مشاريعي">
-      <PageHeader title="مشاريعي" subtitle={`${projects.length} وحدة عقارية مشترك فيها`} />
+      <PageHeader title="مشاريعي" subtitle={`${projects.length} مشروع مشترك فيه`} />
 
       {projects.length === 0 ? (
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm py-20 text-center">

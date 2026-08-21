@@ -119,9 +119,9 @@ export default function AdminReportsPage() {
 
   const reportTabs: { key: ReportType; label: string; total: number }[] = [
     { key: "shareholders", label: "المساهمين",  total: shareholders.length },
-    { key: "units",        label: "الوحدات",     total: units.length },
+    { key: "units",        label: "المشاريع",     total: units.length },
     { key: "apartments",   label: "الشقق",       total: apartments.length },
-    { key: "ownerships",   label: "الملكيات",    total: ownerships.length },
+    { key: "ownerships",   label: "ملكية المساهمين",    total: ownerships.length },
   ];
 
   /* ── print the detail panel ── */
@@ -252,13 +252,13 @@ export default function AdminReportsPage() {
                 </div>
               )}
               <div>
-                <label className="block text-xs text-slate-500 mb-1">الوحدة</label>
+                <label className="block text-xs text-slate-500 mb-1">المشاريع</label>
                 <select
                   value={filterUnit}
                   onChange={(e) => setFilterUnit(e.target.value)}
                   className="px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-400 bg-white"
                 >
-                  <option value="">كل الوحدات</option>
+                  <option value="">كل المشاريع</option>
                   {units.map((u) => (
                     <option key={u.id} value={u.id}>{u.name ?? u.code}</option>
                   ))}
@@ -375,7 +375,7 @@ export default function AdminReportsPage() {
               <table className="min-w-full divide-y divide-slate-100 text-sm">
                 <thead className="bg-slate-50">
                   <tr>
-                    {["م","رقم الشقة","الطابق","الوحدة","الحالة"].map((h) => (
+                    {["م","رقم الشقة","الطابق","المشروع","الحالة"].map((h) => (
                       <th key={h} className="px-4 py-3 text-right font-semibold text-slate-600 whitespace-nowrap text-xs">{h}</th>
                     ))}
                     <th className="no-print px-4 py-3"></th>
@@ -412,7 +412,7 @@ export default function AdminReportsPage() {
               <table className="min-w-full divide-y divide-slate-100 text-sm">
                 <thead className="bg-slate-50">
                   <tr>
-                    {["م","المساهم","رقم الشقة","الوحدة","نسبة الملكية"].map((h) => (
+                    {["م","المساهم","رقم الشقة","المشروع","نسبة الملكية"].map((h) => (
                       <th key={h} className="px-4 py-3 text-right font-semibold text-slate-600 whitespace-nowrap text-xs">{h}</th>
                     ))}
                     <th className="no-print px-4 py-3"></th>
@@ -481,7 +481,7 @@ export default function AdminReportsPage() {
 
               {detail.kind === "unit" && (
                 <>
-                  <h2 className="text-base font-bold mb-3" style={{ color:"var(--foreground)" }}>بيانات الوحدة</h2>
+                  <h2 className="text-base font-bold mb-3" style={{ color:"var(--foreground)" }}>بيانات المشروع</h2>
                   <DetailTable rows={[
                     ["الكود",           detail.data.code ?? "—"],
                     ["الاسم",           detail.data.name ?? "—"],
@@ -500,7 +500,7 @@ export default function AdminReportsPage() {
                   <DetailTable rows={[
                     ["رقم الشقة",  detail.data.apartmentNumber ?? "—"],
                     ["الطابق",     detail.data.floor ?? "—"],
-                    ["الوحدة",     detail.data.unitName ?? `#${detail.data.unitId}`],
+                    ["المشروع",     detail.data.unitName ?? `#${detail.data.unitId}`],
                     ["الحالة",     ApartmentStatusLabels[detail.data.status]],
                   ]} />
                   {detail.owners && detail.owners.length > 0 && (
@@ -526,7 +526,7 @@ export default function AdminReportsPage() {
                   <DetailTable rows={[
                     ["المساهم",        detail.data.shareholderName ?? `#${detail.data.shareholderId}`],
                     ["رقم الشقة",      `شقة ${detail.data.apartmentNumber ?? detail.data.apartmentId}`],
-                    ["الوحدة",         detail.unitName ?? "—"],
+                    ["المشروع",         detail.unitName ?? "—"],
                     ["نسبة الملكية",   `${detail.data.ownershipPercentage}%`],
                   ]} />
                   <div className="mt-4">

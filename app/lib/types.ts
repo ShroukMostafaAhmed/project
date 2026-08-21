@@ -329,14 +329,17 @@ export interface FinancialSummaryDto {
 }
 
 export interface ShareholderContractDto {
-  id:            number;
-  shareholderId: number;
+  id:             number;
+  shareholderId:  number;
   shareholderName?: string | null;
-  fileName:      string | null;
-  fileUrl?:      string | null;
-  uploadedAt?:   string | null;
-  description?:  string | null;
-  contractType?: string | null;
+  unitId?:        number | null;
+  unitName?:      string | null;
+  folderName?:    string | null;
+  fileName:       string | null;
+  fileUrl?:       string | null;
+  uploadedAt?:    string | null;
+  description?:   string | null;
+  contractType?:  string | null;
 }
 
 export interface UpdateContractDto {
@@ -388,9 +391,7 @@ export interface FinancialAuditDto {
 
 export type CreateFinancialAuditDto = Omit<FinancialAuditDto, "id" | "createdAt">;
 
-// ─── Finances (ماليه الوحدات) ─────────────────────────────────────────────────
 
-/** 1 = Expense (مصروف/دين), 2 = Payment (دفعة/سداد) */
 export enum FinanceType {
   Expense = 1,
   Payment = 2,
@@ -477,23 +478,19 @@ export interface ShareholderFinanceReportDto {
   totalDebtAmount:  number;   // readOnly
 }
 
-// ─── Unit Audit (جرد الوحدة) ──────────────────────────────────────────────────
 
-/** 0 = Pending (منتظر — الفترة لسه شغالة), 1 = Closed (مقفول — الدين اتوزع) */
 export enum UnitAuditStatus {
   Pending = 0,
   Closed  = 1,
 }
 
-/** توزيع حصة كل مساهم في جرد الوحدة */
 export interface UnitAuditShareholderShare {
   shareholderId:   number;
   shareholderName: string | null;
-  sharePercentage: number;           // % في وقت الجرد
-  shareAmount:     number;           // المبلغ المستحق عليه
+  sharePercentage: number;          
+  shareAmount:     number;          
 }
 
-/** جرد وحدة واحدة */
 export interface UnitAuditDto {
   id:                   number;
   unitId:               number;

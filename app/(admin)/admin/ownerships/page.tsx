@@ -91,7 +91,7 @@ export default function AdminOwnershipsPage() {
   const [form, setForm] = useState<CreateApartmentOwnershipDto>({
     apartmentId: undefined, shareholderId: undefined, ownershipPercentage: 0,
   });
-  const [editPct, setEditPct] = useState(0);
+  const [editPct, setEditPct] = useState<number>(0);
 
   /* ── derived ── */
   // Map: apartmentId → total ownership %
@@ -178,7 +178,7 @@ export default function AdminOwnershipsPage() {
   }
 
   return (
-    <DashboardShell title="الملكيات">
+    <DashboardShell title="ملكية المساهمين">
       <PageHeader
         title="إدارة الملكيات"
         subtitle="ربط المساهمين بالشقق وتحديد نسب الملكية"
@@ -252,7 +252,7 @@ export default function AdminOwnershipsPage() {
             className="w-full pr-9 pl-4 py-2 rounded-xl text-sm border focus:outline-none appearance-none"
             style={inputStyle()}
           >
-            <option value="">كل الوحدات</option>
+            <option value="">كل المشاريع</option>
             {units.map(u => (
               <option key={u.id} value={u.id}>
                 {u.name ?? u.code}
@@ -341,7 +341,7 @@ export default function AdminOwnershipsPage() {
             <table className="min-w-full text-sm">
               <thead>
                 <tr style={{ borderBottom:"1px solid var(--card-border)" }}>
-                  {["م","المساهم","الشقة","الوحدة","حالة الملكية","نسبة الملكية","إجراءات"].map(h => (
+                  {["م","المساهم","الشقة","المشروع","حالة الملكية","نسبة الملكية","إجراءات"].map(h => (
                     <th key={h} className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide whitespace-nowrap"
                       style={{ color:"var(--muted)", background:"rgba(128,128,128,.04)" }}>
                       {h}
@@ -510,7 +510,7 @@ export default function AdminOwnershipsPage() {
                 const unit = units.find(u => u.id === a.unitId);
                 return (
                   <option key={a.id} value={a.id}>
-                    شقة {a.apartmentNumber} — {unit?.name ?? unit?.code ?? `وحدة ${a.unitId}`} (الطابق {a.floor ?? "—"})
+                    شقة {a.apartmentNumber} — {unit?.name ?? unit?.code ?? `مشروع ${a.unitId}`} (الطابق {a.floor ?? "—"})
                   </option>
                 );
               })}
@@ -522,15 +522,15 @@ export default function AdminOwnershipsPage() {
               نسبة الملكية (%) <span className="text-red-400">*</span>
             </label>
             <div className="flex items-center gap-3">
-              <input type="range" min={1} max={100} step={1}
+              <input type="range" min={0.01} max={100} step={0.01}
                 value={form.ownershipPercentage ?? 0}
-                onChange={e => setForm(p => ({ ...p, ownershipPercentage: parseInt(e.target.value) }))}
+                onChange={e => setForm(p => ({ ...p, ownershipPercentage: parseFloat(e.target.value) }))}
                 className="flex-1 accent-indigo-600"
               />
-              <div className="w-16 text-center">
-                <input type="number" min={1} max={100}
+              <div className="w-20 text-center">
+                <input type="number" min={0.01} max={100} step={0.01}
                   value={form.ownershipPercentage ?? 0}
-                  onChange={e => setForm(p => ({ ...p, ownershipPercentage: parseInt(e.target.value) || 0 }))}
+                  onChange={e => setForm(p => ({ ...p, ownershipPercentage: parseFloat(e.target.value) || 0 }))}
                   className="w-full px-2 py-1.5 rounded-lg text-sm border text-center font-bold focus:outline-none"
                   style={{ ...inputStyle(), color:"#6366f1" }}
                 />
@@ -581,15 +581,15 @@ export default function AdminOwnershipsPage() {
                 نسبة الملكية الجديدة (%)
               </label>
               <div className="flex items-center gap-3">
-                <input type="range" min={1} max={100} step={1}
+                <input type="range" min={0.01} max={100} step={0.01}
                   value={editPct}
-                  onChange={e => setEditPct(parseInt(e.target.value))}
+                  onChange={e => setEditPct(parseFloat(e.target.value))}
                   className="flex-1 accent-indigo-600"
                 />
-                <div className="w-16">
-                  <input type="number" min={1} max={100}
+                <div className="w-20">
+                  <input type="number" min={0.01} max={100} step={0.01}
                     value={editPct}
-                    onChange={e => setEditPct(parseInt(e.target.value) || 0)}
+                    onChange={e => setEditPct(parseFloat(e.target.value) || 0)}
                     className="w-full px-2 py-1.5 rounded-lg text-sm border text-center font-bold focus:outline-none"
                     style={{ ...inputStyle(), color:"#6366f1" }}
                   />

@@ -138,7 +138,7 @@ export default function AdminDashboardPage() {
           <div className="flex gap-3 flex-wrap">
             {[
               { label: "مساهمين نشطين", value: activeCount, icon: Users },
-              { label: "وحدات", value: units.length, icon: Building2 },
+              { label: "مشاريع", value: units.length, icon: Building2 },
               { label: "نسبة التشغيل", value: `${occupancyPct}%`, icon: Percent },
             ].map(({ label, value, icon: Icon }) => (
               <div key={label} className="bg-white/15 backdrop-blur-sm rounded-2xl px-4 py-3 min-w-24 text-center border border-white/20">
@@ -165,7 +165,7 @@ export default function AdminDashboardPage() {
             badge: `+${shareholders.length}`,
           },
           {
-            title: "الوحدات العقارية",
+            title: "المشاريع",
             value: units.length,
             sub: `${units.reduce((s, u) => s + u.numFloors, 0)} طابق إجمالاً`,
             icon: Building2,
@@ -279,7 +279,7 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
         {/* Bar chart — units */}
-        <ChartCard className="lg:col-span-2" title="الشقق لكل وحدة" subtitle="مقارنة الوحدات العقارية" icon={Building2}>
+        <ChartCard className="lg:col-span-2" title="الشقق لكل مشروع" subtitle="مقارنة المشاريع " icon={Building2}>
           {unitBarData.length > 0 ? (
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={unitBarData} barGap={6}>
