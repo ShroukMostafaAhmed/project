@@ -479,6 +479,81 @@ export interface ShareholderFinanceReportDto {
 }
 
 
+// ─── Apartment Sales (الشقق المباعة) ─────────────────────────────────────────
+
+/** GET /api/Apartments/available-by-unit/{unitId} */
+export interface AvailableApartmentDto {
+  apartmentId:                           number;
+  apartmentNumber:                       string | null;
+  floor:                                 string | null;
+  unitId:                                number;
+  unitName:                              string | null;
+  unitCode:                              string | null;
+  status:                                ApartmentStatus;
+  statusName:                            string | null;
+  totalOwnershipPercentage:              number;
+  remainingOwnershipPercentage:          number;
+  currentShareholderOwnershipPercentage: number;
+}
+
+export interface ApartmentSaleInstallmentDto {
+  id:                number;
+  apartmentSaleId:   number;
+  installmentNumber: number;
+  dueDate:           string;
+  amount:            number;
+  isPaid:            boolean;
+  paidDate:          string | null;
+  notes:             string | null;
+}
+
+/** نصيب كل مساهم من ثمن البيع حسب نسبة ملكيته في الشقة */
+export interface ShareholderPayoutShareDto {
+  shareholderId:       number;
+  shareholderName:     string | null;
+  ownershipPercentage: number;
+  shareAmount:         number;
+}
+
+export interface ApartmentSaleDto {
+  id:                          number;
+  apartmentId:                 number;
+  apartmentNumber:             string | null;
+  floor:                       string | null;
+  unitId:                      number;
+  unitName:                    string | null;
+  buyerName:                   string | null;
+  buyerPhone:                  string | null;
+  buyerNationalId:             string | null;
+  totalPrice:                  number;
+  downPayment:                 number;
+  installmentMonthsCount:      number;
+  monthlyInstallmentAmount:    number;
+  saleDate:                    string;
+  firstInstallmentDueDate:     string;
+  notes:                       string | null;
+  shareholdersPayoutBreakdown: ShareholderPayoutShareDto[] | null;
+  installments:                ApartmentSaleInstallmentDto[] | null;
+}
+
+export interface CreateApartmentSaleDto {
+  apartmentId:              number;
+  buyerName?:               string | null;
+  buyerPhone?:              string | null;
+  buyerNationalId?:         string | null;
+  totalPrice:               number;
+  downPayment:              number;
+  installmentMonthsCount:   number;
+  saleDate?:                string | null;
+  firstInstallmentDueDate?: string | null;
+  notes?:                   string | null;
+}
+
+export interface PayInstallmentDto {
+  paidDate?: string | null;
+  notes?:    string | null;
+}
+
 export enum UnitAuditStatus {
   Pending = 0,
   Closed  = 1,

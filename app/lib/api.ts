@@ -13,6 +13,8 @@ import {
   FinanceDto, CreateFinanceDto, UpdateFinanceDto, FinanceType,
   ProjectFinanceSummaryDto, ShareholderFinanceReportDto,
   UnitAuditDto, CreateUnitAuditDto, UnitExpenseSummaryDto, UnitAuditStatus,
+  AvailableApartmentDto, ApartmentSaleDto, CreateApartmentSaleDto,
+  ApartmentSaleInstallmentDto, PayInstallmentDto,
   LoginDto, LoginResponseDto,
 } from "./types";
 import {
@@ -290,6 +292,10 @@ export const api = {
       () => request<ApartmentDto[]>(`/Apartments/by-unit/${unitId}`),
       () => _apartments.filter((a) => a.unitId === unitId)
     ),
+    availableByUnit: (unitId: number, shareholderId?: number) => {
+      const q = shareholderId !== undefined ? `?shareholderId=${shareholderId}` : "";
+      return request<AvailableApartmentDto[]>(`/Apartments/available-by-unit/${unitId}${q}`);
+    },
     create: (data: CreateApartmentDto) => withFallback(
       () => request<ApartmentDto>("/Apartments", { method: "POST", body: JSON.stringify(data) }),
       () => {
@@ -318,6 +324,21 @@ export const api = {
       () => request<void>(`/Apartments/${id}`, { method: "DELETE" }),
       () => { _apartments = _apartments.filter((a) => a.id !== id); }
     ),
+  },
+
+  // ─── ApartmentSales (الشقق المباعة) ────────────────────────────────────────
+  apartmentSales: {
+    list: () => request<ApartmentSaleDto[]>("/ApartmentSales"),
+    get: (id: number) => request<ApartmentSaleDto>(`/ApartmentSales/${id}`),
+    byApartment: (apartmentId: number) =>
+      request<ApartmentSaleDto>(`/ApartmentSales/by-apartment/${apartmentId}`),
+    create: (data: CreateApartmentSaleDto) =>
+      request<ApartmentSaleDto>("/ApartmentSales", { method: "POST", body: JSON.stringify(data) }),
+    payInstallment: (installmentId: number, data: PayInstallmentDto = {}) =>
+      request<ApartmentSaleInstallmentDto>(
+        `/ApartmentSales/installments/${installmentId}/pay`,
+        { method: "POST", body: JSON.stringify(data) }
+      ),
   },
 
   // ─── Ownerships ────────────────────────────────────────────────────────────

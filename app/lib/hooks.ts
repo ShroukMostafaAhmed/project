@@ -140,6 +140,13 @@ export function useApartmentsByUnit(unitId: number | null) {
   return { apartments: data ?? [], loading, error, reload };
 }
 
+// ─── Apartment sales ──────────────────────────────────────────────────────────
+
+export function useApartmentSales() {
+  const { data, loading, error, reload } = useFetch(() => api.apartmentSales.list());
+  return { sales: data ?? [], loading, error, reload };
+}
+
 // ─── Ownerships ───────────────────────────────────────────────────────────────
 
 export function useOwnerships() {
