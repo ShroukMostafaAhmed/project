@@ -87,6 +87,18 @@ export default function ApartmentSalesPage() {
       .finally(() => setAptsLoading(false));
   }, [selUnitId]);
 
+  /* IDs الشقق اللي ليها صفقة بيع مسجلة بالفعل */
+  const soldApartmentIds = useMemo(
+    () => new Set(sales.map(s => s.apartmentId)),
+    [sales]
+  );
+
+  /* الشقق المتاحة فقط (تستبعد أي شقة مباعة بالفعل) داخل الوحدة المختارة */
+  const availableApartments = useMemo(
+    () => apartments.filter(a => !soldApartmentIds.has(a.id)),
+    [apartments, soldApartmentIds]
+  );
+
   /* filter */
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -114,6 +126,11 @@ export default function ApartmentSalesPage() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!form.apartmentId) { setFormErr("اختر الشقة"); return; }
+    // حماية إضافية: تأكيد إن الشقة المختارة لسه متاحة قبل الإرسال
+    if (soldApartmentIds.has(parseInt(form.apartmentId))) {
+      setFormErr("هذه الشقة مباعة بالفعل، برجاء اختيار شقة أخرى");
+      return;
+    }
     setSaving(true); setFormErr("");
     try {
       await api.apartmentSales.create({
@@ -423,11 +440,18 @@ export default function ApartmentSalesPage() {
               <select value={form.apartmentId} onChange={e => setForm(p => ({ ...p, apartmentId: e.target.value }))}
                 disabled={!selUnitId || aptsLoading}
                 className={ic} style={selUnitId ? iStyle() : { ...iStyle(), opacity: .6, cursor: "not-allowed" }}>
-                <option value="">{aptsLoading ? "جاري التحميل..." : "اختر الشقة..."}</option>
-                {apartments.map(a => (
+                <option value="">
+                  {aptsLoading
+                    ? "جاري التحميل..."
+                    : (selUnitId && availableApartments.length === 0
+                        ? "لا توجد شقق متاحة في هذا المشروع"
+                        : "اختر الشقة...")}
+                </option>
+                {availableApartments.map(a => (
                   <option key={a.id} value={a.id}>شقة {a.apartmentNumber ?? a.id} — طابق {a.floor ?? "—"}</option>
                 ))}
               </select>
+              
             </div>
           </div>
 

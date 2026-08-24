@@ -128,7 +128,6 @@ export interface ShareholderUnitDto {
   sharesCount:     number;
 }
 
-// ─── ShareholderUnit full response (by-shareholder) ─────────────────────────
 
 export interface ShareholderUnitApartment {
   apartmentId:         number;
