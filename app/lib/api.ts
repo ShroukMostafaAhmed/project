@@ -13,6 +13,7 @@ import {
   FinanceDto, CreateFinanceDto, UpdateFinanceDto, FinanceType,
   ProjectFinanceSummaryDto, ShareholderFinanceReportDto,
   UnitAuditDto, CreateUnitAuditDto, UnitExpenseSummaryDto, UnitAuditStatus,
+  ApartmentSaleDto, CreateApartmentSaleDto, ApartmentSaleInstallmentDto, PayInstallmentDto,
   LoginDto, LoginResponseDto,
 } from "./types";
 import {
@@ -234,6 +235,24 @@ export const api = {
         return u;
       }
     ),
+    // Projects (units) belonging to a specific shareholder, with per-unit
+    // share info and the apartments they own inside that unit.
+    // GET /api/Units/by-shareholder/{shareholderId}
+    byShareholder: (shareholderId: number) => withFallback(
+      () => request<ShareholderFullDto>(`/Units/by-shareholder/${shareholderId}`),
+      () => ({
+        shareholderId,
+        shareholderName: _shareholders.find(s => s.id === shareholderId)?.fullName ?? null,
+        nationalId: _shareholders.find(s => s.id === shareholderId)?.nationalId ?? null,
+        units: _shareholderUnits
+          .filter(s => s.shareholderId === shareholderId)
+          .map(s => ({
+            unitId: s.unitId, unitName: s.unitName, unitCode: null,
+            sharesCount: s.sharesCount, sharePercentage: 0,
+            remainingSharePercentage: 0, apartments: [],
+          })),
+      })
+    ),
     create: (data: CreateUnitDto) => withFallback(
       () => request<UnitDto>("/Units", { method: "POST", body: JSON.stringify(data) }),
       () => {
@@ -290,6 +309,22 @@ export const api = {
       () => request<ApartmentDto[]>(`/Apartments/by-unit/${unitId}`),
       () => _apartments.filter((a) => a.unitId === unitId)
     ),
+    availableByUnit: (unitId: number) => withFallback(
+      () => request<import("./types").AvailableApartmentDto[]>(`/Apartments/available-by-unit/${unitId}`),
+      () => _apartments.filter(a => a.unitId === unitId).map(a => ({
+        apartmentId: a.id, apartmentNumber: a.apartmentNumber,
+        floor: a.floor, unitId: a.unitId, unitName: a.unitName, unitCode: null,
+        status: a.status, statusName: null,
+        totalOwnershipPercentage: 0, remainingOwnershipPercentage: 100,
+        currentShareholderOwnershipPercentage: 0,
+      }))
+    ),
+    availableForShareholder: (shareholderId: number, unitId?: number) => {
+      const q = unitId !== undefined ? `?unitId=${unitId}` : "";
+      return request<import("./types").AvailableApartmentDto[]>(
+        `/Apartments/available-for-shareholder/${shareholderId}${q}`
+      );
+    },
     create: (data: CreateApartmentDto) => withFallback(
       () => request<ApartmentDto>("/Apartments", { method: "POST", body: JSON.stringify(data) }),
       () => {
@@ -434,6 +469,22 @@ export const api = {
       () => request<void>(`/ShareholderUnits/${id}`, { method: "DELETE" }),
       () => { _shareholderUnits = _shareholderUnits.filter(s => s.id !== id); }
     ),
+  },
+
+  // ─── ApartmentSales (مبيعات الشقق) ───────────────────────────────────────
+  apartmentSales: {
+    list: () =>
+      request<ApartmentSaleDto[]>("/ApartmentSales"),
+    get: (id: number) =>
+      request<ApartmentSaleDto>(`/ApartmentSales/${id}`),
+    byApartment: (apartmentId: number) =>
+      request<ApartmentSaleDto>(`/ApartmentSales/by-apartment/${apartmentId}`),
+    create: (data: CreateApartmentSaleDto) =>
+      request<ApartmentSaleDto>("/ApartmentSales", { method: "POST", body: JSON.stringify(data) }),
+    payInstallment: (installmentId: number, data: PayInstallmentDto) =>
+      request<ApartmentSaleInstallmentDto>(`/ApartmentSales/installments/${installmentId}/pay`, {
+        method: "POST", body: JSON.stringify(data),
+      }),
   },
 
   // ─── FinancialCategories ──────────────────────────────────────────────────

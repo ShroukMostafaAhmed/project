@@ -138,12 +138,13 @@ export interface ShareholderUnitApartment {
 }
 
 export interface ShareholderUnitEntry {
-  unitId:          number;
-  unitName:        string | null;
-  unitCode:        string | null;
-  sharesCount:     number;
-  sharePercentage: number;
-  apartments:      ShareholderUnitApartment[];
+  unitId:                    number;
+  unitName:                  string | null;
+  unitCode:                  string | null;
+  sharesCount:               number;
+  sharePercentage:           number;
+  remainingSharePercentage?: number;  
+  apartments:                ShareholderUnitApartment[];
 }
 
 export interface ShareholderFullDto {
@@ -193,6 +194,20 @@ export interface ApartmentDto {
   unitName: string | null;
   status: ApartmentStatus;
   statusName: string | null;
+}
+
+export interface AvailableApartmentDto {
+  apartmentId:                           number;
+  apartmentNumber:                       string | null;
+  floor:                                 string | null;
+  unitId:                                number;
+  unitName?:                             string | null;
+  unitCode?:                             string | null;
+  status:                                ApartmentStatus;
+  statusName?:                           string | null;
+  totalOwnershipPercentage:              number;   // مجموع النسب المسجلة
+  remainingOwnershipPercentage:          number;   // الباقي المتاح
+  currentShareholderOwnershipPercentage: number;   // نسبة المساهم الحالي
 }
 
 export interface CreateApartmentDto {
@@ -526,4 +541,63 @@ export interface UnitExpenseSummaryDto {
     sharePercentage:  number;
     shareAmount:      number;
   }[];
+}
+
+// ─── Apartment Sales (مبيعات الشقق) ─────────────────────────────────────────
+
+export interface ApartmentSaleInstallmentDto {
+  id:                number;
+  apartmentSaleId:   number;
+  installmentNumber: number;
+  dueDate:           string;
+  amount:            number;
+  isPaid:            boolean;
+  paidDate?:         string | null;
+  notes?:            string | null;
+}
+
+export interface ShareholderPayoutShareDto {
+  shareholderId:       number;
+  shareholderName?:    string | null;
+  ownershipPercentage: number;
+  shareAmount:         number;
+}
+
+export interface ApartmentSaleDto {
+  id:                        number;
+  apartmentId:               number;
+  apartmentNumber?:          string | null;
+  floor?:                    string | null;
+  unitId:                    number;
+  unitName?:                 string | null;
+  buyerName?:                string | null;
+  buyerPhone?:               string | null;
+  buyerNationalId?:          string | null;
+  totalPrice:                number;
+  downPayment:               number;
+  installmentMonthsCount:    number;
+  monthlyInstallmentAmount:  number;
+  saleDate:                  string;
+  firstInstallmentDueDate:   string;
+  notes?:                    string | null;
+  shareholdersPayoutBreakdown?: ShareholderPayoutShareDto[] | null;
+  installments?:             ApartmentSaleInstallmentDto[] | null;
+}
+
+export interface CreateApartmentSaleDto {
+  apartmentId:             number;
+  buyerName?:              string | null;
+  buyerPhone?:             string | null;
+  buyerNationalId?:        string | null;
+  totalPrice:              number;
+  downPayment:             number;
+  installmentMonthsCount:  number;
+  saleDate?:               string | null;
+  firstInstallmentDueDate?: string | null;
+  notes?:                  string | null;
+}
+
+export interface PayInstallmentDto {
+  paidDate?: string | null;
+  notes?:    string | null;
 }

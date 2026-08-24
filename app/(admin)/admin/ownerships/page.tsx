@@ -45,7 +45,7 @@ export default function AdminOwnershipsPage() {
   const [loadingUnit,      setLoadingUnit]      = useState(false);
 
   /* ── apartments for selected unit (fetched from API) ── */
-  const [unitApts,     setUnitApts]     = useState<import("@/app/lib/types").ApartmentDto[]>([]);
+  const [unitApts, setUnitApts] = useState<import("@/app/lib/types").AvailableApartmentDto[]>([]);
   const [loadingUnitApts, setLoadingUnitApts] = useState(false);
 
   async function handleUnitChange(unitId: string) {
@@ -61,7 +61,7 @@ export default function AdminOwnershipsPage() {
     try {
       const [shData, aptData] = await Promise.all([
         api.shareholderUnits.byUnit(parseInt(unitId)),
-        api.apartments.byUnit(parseInt(unitId)),
+        api.apartments.availableByUnit(parseInt(unitId)),
       ]);
       setUnitShareholders(shData);
       setUnitApts(aptData);
@@ -76,7 +76,7 @@ export default function AdminOwnershipsPage() {
 
   // Filter ownerships by the apartments of the selected unit
   const unitAptIds = useMemo(
-    () => filterUnit ? new Set(unitApts.map(a => a.id)) : null,
+    () => filterUnit ? new Set(unitApts.map(a => a.apartmentId)) : null,
     [filterUnit, unitApts]
   );
 
@@ -92,6 +92,42 @@ export default function AdminOwnershipsPage() {
     apartmentId: undefined, shareholderId: undefined, ownershipPercentage: 0,
   });
   const [editPct, setEditPct] = useState<number>(0);
+
+  /* ── modal: available apts for selected shareholder+unit ── */
+  const [modalUnitId,    setModalUnitId]    = useState<string>("");
+  const [modalAvailApts, setModalAvailApts] = useState<import("@/app/lib/types").AvailableApartmentDto[]>([]);
+  const [loadingAvail,   setLoadingAvail]   = useState(false);
+
+  /* ── modal: units (projects) belonging to selected shareholder ── */
+  // /api/Units/by-shareholder/{id} returns ShareholderFullDto → { ..., units: ShareholderUnitEntry[] }
+  const [shareholderUnits, setShareholderUnits] = useState<import("@/app/lib/types").ShareholderUnitEntry[]>([]);
+  const [loadingShUnits,   setLoadingShUnits]   = useState(false);
+
+  async function loadShareholderUnits(shareholderId: string) {
+    if (!shareholderId) { setShareholderUnits([]); return; }
+    setLoadingShUnits(true);
+    try {
+      const data = await api.units.byShareholder(parseInt(shareholderId));
+      setShareholderUnits(Array.isArray(data?.units) ? data.units : []);
+    } catch {
+      setShareholderUnits([]);
+    } finally {
+      setLoadingShUnits(false);
+    }
+  }
+
+  async function loadAvailableApts(shareholderId: string, unitId: string) {
+    if (!shareholderId) { setModalAvailApts([]); return; }
+    setLoadingAvail(true);
+    try {
+      const data = await api.apartments.availableForShareholder(
+        parseInt(shareholderId),
+        unitId ? parseInt(unitId) : undefined,
+      );
+      setModalAvailApts(Array.isArray(data) ? data : []);
+    } catch { setModalAvailApts([]); }
+    finally { setLoadingAvail(false); }
+  }
 
   /* ── derived ── */
   // Map: apartmentId → total ownership %
@@ -190,7 +226,11 @@ export default function AdminOwnershipsPage() {
               title="تحديث">
               <RefreshCw className="w-4 h-4" style={{ color:"var(--muted)" }} />
             </button>
-            <button onClick={() => { setShowAdd(true); setFormErr(""); setForm({ apartmentId:undefined, shareholderId:undefined, ownershipPercentage:0 }); }}
+            <button onClick={() => {
+                setShowAdd(true); setFormErr(""); setModalUnitId("");
+                setModalAvailApts([]); setShareholderUnits([]);
+                setForm({ apartmentId:undefined, shareholderId:undefined, ownershipPercentage:0 });
+              }}
               className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl text-white"
               style={{ background:"linear-gradient(135deg,#6366f1,#7c3aed)", boxShadow:"0 3px 12px rgba(99,102,241,.3)" }}>
               <Plus className="w-4 h-4" /> إضافة ملكية
@@ -480,14 +520,29 @@ export default function AdminOwnershipsPage() {
       )}
 
       {/* ── Add Modal ── */}
-      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="إضافة ملكية جديدة">
+      <Modal open={showAdd} onClose={() => {
+          setShowAdd(false); setModalUnitId("");
+          setModalAvailApts([]); setShareholderUnits([]);
+        }} title="إضافة ملكية جديدة">
         <form onSubmit={handleAdd} className="space-y-4">
+
+          {/* 1. المساهم */}
           <div>
             <label className="block text-xs font-semibold mb-1.5" style={{ color:"var(--muted)" }}>
               المساهم <span className="text-red-400">*</span>
             </label>
             <select required value={form.shareholderId ?? ""}
-              onChange={e => setForm(p => ({ ...p, shareholderId: e.target.value ? parseInt(e.target.value) : undefined }))}
+              onChange={e => {
+                const shId = e.target.value;
+                setForm(p => ({ ...p, shareholderId: shId ? parseInt(shId) : undefined, apartmentId: undefined }));
+                setModalAvailApts([]);
+                setModalUnitId("");           // نصفّر المشروع المختار لأنه ممكن ميبقاش تابع للمساهم الجديد
+                setShareholderUnits([]);
+                if (shId) {
+                  loadAvailableApts(shId, "");
+                  loadShareholderUnits(shId);
+                }
+              }}
               className="w-full px-3.5 py-2.5 rounded-xl text-sm border focus:outline-none"
               style={inputStyle()}>
               <option value="">اختر مساهم...</option>
@@ -497,24 +552,86 @@ export default function AdminOwnershipsPage() {
             </select>
           </div>
 
+          {/* 2. المشروع (اختياري — لتضييق البحث) — يعرض مشاريع المساهم فقط */}
+          {form.shareholderId && (
+            <div>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color:"var(--muted)" }}>
+                المشروع (اختياري — لتصفية الشقق)
+              </label>
+              <div className="relative">
+                <select value={modalUnitId}
+                  disabled={loadingShUnits}
+                  onChange={e => {
+                    const uid = e.target.value;
+                    setModalUnitId(uid);
+                    setForm(p => ({ ...p, apartmentId: undefined }));
+                    if (form.shareholderId) loadAvailableApts(String(form.shareholderId), uid);
+                  }}
+                  className="w-full px-3.5 py-2.5 rounded-xl text-sm border focus:outline-none"
+                  style={loadingShUnits ? { ...inputStyle(), opacity:.6, cursor:"not-allowed" } : inputStyle()}>
+                  <option value="">كل المشاريع</option>
+                  {shareholderUnits.map(u => (
+                    <option key={u.unitId} value={u.unitId}>
+                      {u.unitName ?? u.unitCode}
+                      {u.apartments.length === 0 ? " (لا توجد شقق)" : ""}
+                    </option>
+                  ))}
+                  {!loadingShUnits && shareholderUnits.length === 0 && (
+                    <option disabled value="">لا توجد مشاريع لهذا المساهم</option>
+                  )}
+                </select>
+                {loadingShUnits && (
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border-2 border-indigo-300 border-t-indigo-600 rounded-full animate-spin" />
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 3. الشقة */}
           <div>
             <label className="block text-xs font-semibold mb-1.5" style={{ color:"var(--muted)" }}>
               الشقة <span className="text-red-400">*</span>
             </label>
             <select required value={form.apartmentId ?? ""}
-              onChange={e => setForm(p => ({ ...p, apartmentId: e.target.value ? parseInt(e.target.value) : undefined }))}
+              disabled={!form.shareholderId || loadingAvail}
+              onChange={e => {
+                const aptId = e.target.value ? parseInt(e.target.value) : undefined;
+                const apt = modalAvailApts.find(a => a.apartmentId === aptId);
+                setForm(p => ({
+                  ...p,
+                  apartmentId: aptId,
+                  ownershipPercentage: apt ? Math.min(p.ownershipPercentage ?? 0, apt.remainingOwnershipPercentage) : p.ownershipPercentage,
+                }));
+              }}
               className="w-full px-3.5 py-2.5 rounded-xl text-sm border focus:outline-none"
-              style={inputStyle()}>
-              <option value="">اختر شقة...</option>
-              {apartments.map(a => {
-                const unit = units.find(u => u.id === a.unitId);
-                return (
-                  <option key={a.id} value={a.id}>
-                    شقة {a.apartmentNumber} — {unit?.name ?? unit?.code ?? `مشروع ${a.unitId}`} (الطابق {a.floor ?? "—"})
-                  </option>
-                );
-              })}
+              style={!form.shareholderId || loadingAvail ? { ...inputStyle(), opacity: .6, cursor: "not-allowed" } : inputStyle()}>
+              <option value="">
+                {!form.shareholderId ? "اختر مساهم أولاً..." : loadingAvail ? "جاري التحميل..." : "اختر شقة..."}
+              </option>
+              {modalAvailApts.map(a => (
+                <option key={a.apartmentId} value={a.apartmentId}>
+                  شقة {a.apartmentNumber ?? a.apartmentId} — {a.unitName ?? ""} (طابق {a.floor ?? "—"})
+                  {` | متاح: ${a.remainingOwnershipPercentage.toFixed(1)}%`}
+                  {a.totalOwnershipPercentage > 0 ? ` (مسجّل: ${a.totalOwnershipPercentage.toFixed(1)}%)` : ""}
+                </option>
+              ))}
+              {/* fallback لو ما في شقق متاحة */}
+              {form.shareholderId && !loadingAvail && modalAvailApts.length === 0 && (
+                <option disabled value="">لا توجد شقق متاحة</option>
+              )}
             </select>
+            {/* النسبة المتاحة للشقة المختارة */}
+            {form.apartmentId && (() => {
+              const apt = modalAvailApts.find(a => a.apartmentId === form.apartmentId);
+              if (!apt) return null;
+              return (
+                <p className="text-xs mt-1.5 px-1" style={{ color: apt.remainingOwnershipPercentage > 0 ? "#10b981" : "#ef4444" }}>
+                  متاح: <strong>{apt.remainingOwnershipPercentage.toFixed(2)}%</strong>
+                  {apt.totalOwnershipPercentage > 0 && ` · مسجّل مسبقاً: ${apt.totalOwnershipPercentage.toFixed(2)}%`}
+                  {apt.currentShareholderOwnershipPercentage > 0 && ` · حصته الحالية: ${apt.currentShareholderOwnershipPercentage.toFixed(2)}%`}
+                </p>
+              );
+            })()}
           </div>
 
           <div>
@@ -522,13 +639,21 @@ export default function AdminOwnershipsPage() {
               نسبة الملكية (%) <span className="text-red-400">*</span>
             </label>
             <div className="flex items-center gap-3">
-              <input type="range" min={0.01} max={100} step={0.01}
+              <input type="range" min={0.01}
+                max={modalAvailApts.length > 0 && form.apartmentId
+                  ? (modalAvailApts.find(a => a.apartmentId === form.apartmentId)?.remainingOwnershipPercentage ?? 100)
+                  : 100}
+                step={0.01}
                 value={form.ownershipPercentage ?? 0}
                 onChange={e => setForm(p => ({ ...p, ownershipPercentage: parseFloat(e.target.value) }))}
                 className="flex-1 accent-indigo-600"
               />
               <div className="w-20 text-center">
-                <input type="number" min={0.01} max={100} step={0.01}
+                <input type="number" min={0.01}
+                  max={modalAvailApts.length > 0 && form.apartmentId
+                    ? (modalAvailApts.find(a => a.apartmentId === form.apartmentId)?.remainingOwnershipPercentage ?? 100)
+                    : 100}
+                  step={0.01}
                   value={form.ownershipPercentage ?? 0}
                   onChange={e => setForm(p => ({ ...p, ownershipPercentage: parseFloat(e.target.value) || 0 }))}
                   className="w-full px-2 py-1.5 rounded-lg text-sm border text-center font-bold focus:outline-none"

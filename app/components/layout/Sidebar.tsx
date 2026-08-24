@@ -19,8 +19,8 @@ const adminNav: NavItem[] = [
   { href: "/admin/ownerships",       label: "ملكية المساهمين",       icon: KeyRound        },
   { href: "/admin/finance",          label: "الماليه",        icon: Wallet          },
   { href: "/admin/expenses",         label: "المصاريف",       icon: Receipt         },
+  { href: "/admin/apartment-sales",  label: "مبيعات الشقق",   icon: Home            },
   { href: "/admin/analysis",         label: "التحليلات",      icon: BarChart3       },
-  { href: "/admin/reports",          label: "التقارير",       icon: FileText        },
   { href: "/admin/contracts",        label: "عقود الملكية",         icon: FileText        },
 ];
 
