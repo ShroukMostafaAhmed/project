@@ -5,7 +5,7 @@ import {
   Plus, TrendingDown, Wallet, RefreshCw, X,
   AlertCircle, Building2, Users, Pencil, Trash2,
   CreditCard, BadgeDollarSign, BookOpen,
-  ChevronDown, ChevronUp, Calendar,
+  ChevronDown, ChevronUp, Calendar, PiggyBank,
 } from "lucide-react";
 import DashboardShell from "@/app/components/layout/DashboardShell";
 import PageHeader from "@/app/components/ui/PageHeader";
@@ -34,6 +34,34 @@ function toDateOnlyString(d: Date): string {
   const m   = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+/**
+ * الـ API بترجع حقول إضافية على مستوى الوحدة (unitBaseCosts, shareholderBaseCostsShare,
+ * unitProjectExpenses, shareholderAuditExpensesShare, generalPaidAmount, auditPaidAmount,
+ * excessGeneralPayment, auditDeductedFromCredit, creditBalance) لسه معملهاش تعريف في
+ * ShareholderFinanceReportDto. بنقراها بأمان من غير ما نكسر التايبات الحالية.
+ */
+function creditOf(u: unknown): number {
+  const v = (u as { creditBalance?: number })?.creditBalance;
+  return typeof v === "number" ? v : 0;
+}
+function generalPaidOf(u: unknown): number {
+  const v = (u as { generalPaidAmount?: number })?.generalPaidAmount;
+  return typeof v === "number" ? v : 0;
+}
+function auditPaidOf(u: unknown): number {
+  const v = (u as { auditPaidAmount?: number })?.auditPaidAmount;
+  return typeof v === "number" ? v : 0;
+}
+/** حصة المساهم من التكلفة الأساسية للوحدة (بعيدًا عن مصاريف الجرود) — أساس السداد العام */
+function baseCostsShareOf(u: unknown): number {
+  const v = (u as { shareholderBaseCostsShare?: number })?.shareholderBaseCostsShare;
+  return typeof v === "number" ? v : 0;
+}
+/** الدين "العام" فقط (بدون ديون الجرود) = حصته الأساسية − اللي سدده كسداد عام */
+function generalDebtOf(u: unknown): number {
+  return Math.max(0, baseCostsShareOf(u) - generalPaidOf(u));
 }
 
 const EMPTY_FORM = {
@@ -94,9 +122,11 @@ export default function AdminFinancePage() {
     shareholderName: string | null;
     unitId:          number;
     unitName:        string | null;
-    auditId:         number | null;   
+    auditId:         number | null;
     auditName:       string;
     maxAmount:       number;
+    capped:          boolean;
+    currentCredit:   number;
   } | null>(null);
   const [payForm,  setPayForm]  = useState({ ...EMPTY_PAY });
   const [paySaving,setPaySaving]= useState(false);
@@ -146,7 +176,6 @@ export default function AdminFinancePage() {
   }, []);
   useEffect(() => { if (activeTab === "shareholders" && shReport.length === 0) loadShReport(); }, [activeTab, loadShReport, shReport.length]);
 
-  /* ── فتح مودال السداد ── */
   function openPayModal(params: {
     shareholderId:   number;
     shareholderName: string | null;
@@ -155,6 +184,7 @@ export default function AdminFinancePage() {
     auditId:         number | null;
     auditName:       string;
     debtAmount:      number;
+    currentCredit?:  number;
   }) {
     setPayTarget({
       shareholderId:   params.shareholderId,
@@ -164,19 +194,23 @@ export default function AdminFinancePage() {
       auditId:         params.auditId,
       auditName:       params.auditName,
       maxAmount:       params.debtAmount,
+      capped:          params.auditId !== null,
+      currentCredit:   params.currentCredit ?? 0,
     });
     setPayForm({ ...EMPTY_PAY, auditId: params.auditId ? String(params.auditId) : "" });
     setPayErr("");
     setShowPayModal(true);
   }
 
-  /* ── حفظ السداد ── */
   async function handlePay(e: React.FormEvent) {
     e.preventDefault();
     if (!payTarget) return;
     const amt = parseFloat(payForm.amount);
     if (!amt || amt <= 0) { setPayErr("أدخل مبلغ صح"); return; }
-    if (amt > payTarget.maxAmount + 0.01) { setPayErr(`المبلغ (${formatCurrency(amt)}) أكبر من الدين المتبقي في هذا الجرد (${formatCurrency(payTarget.maxAmount)})`); return; }
+    if (payTarget.capped && amt > payTarget.maxAmount + 0.01) {
+      setPayErr(`المبلغ (${formatCurrency(amt)}) أكبر من الدين المتبقي في هذا الجرد (${formatCurrency(payTarget.maxAmount)})`);
+      return;
+    }
     setPaySaving(true); setPayErr("");
     try {
       await api.finances.create({
@@ -200,8 +234,9 @@ export default function AdminFinancePage() {
         setShPayments(prev => ({ ...prev, [key]: (prev[key] ?? 0) + amt }));
       }
 
-      // reset تقرير المساهمين
+      // reset تقرير المساهمين عشان يتحدث فيه creditBalance/debtAmount من السيرفر
       setShReport([]);
+      setShFinancesLoaded({});
       await loadFinances();
     } catch (err) { setPayErr((err as Error).message); }
     finally { setPaySaving(false); }
@@ -691,6 +726,7 @@ export default function AdminFinancePage() {
               {shReport.map(sh => {
                 const isExpanded = expandedSh === sh.shareholderId;
                 const hasDebt    = sh.totalDebtAmount > 0;
+                const totalCredit = (sh.units ?? []).reduce((s, u) => s + creditOf(u), 0);
                 return (
                   <div key={sh.shareholderId} className="rounded-2xl border overflow-hidden" style={cStyle()}>
                     {/* Header */}
@@ -759,6 +795,12 @@ export default function AdminFinancePage() {
                             <p className="text-sm font-bold" style={{ color: clr }}>{formatCurrency(value)}</p>
                           </div>
                         ))}
+                        {totalCredit > 0.009 && (
+                          <div className="text-center">
+                            <p className="text-[11px] mb-1" style={{ color: "var(--muted)" }}>رصيد متبقي</p>
+                            <p className="text-sm font-bold" style={{ color: "#0ea5e9" }}>{formatCurrency(totalCredit)}</p>
+                          </div>
+                        )}
                       </div>
                       <span className="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0"
                         style={hasDebt ? { background: "rgba(245,158,11,.1)", color: "#f59e0b" } : { background: "rgba(16,185,129,.1)", color: "#10b981" }}>
@@ -772,7 +814,10 @@ export default function AdminFinancePage() {
                     {isExpanded && sh.units && sh.units.length > 0 && (
                       <div className="border-t px-5 pb-5 pt-3 space-y-4" style={{ borderColor: "var(--card-border)" }}>
                         {sh.units.map(u => {
-                          const uDebt = u.debtAmount > 0;
+                          const uDebt        = u.debtAmount > 0;
+                          const uCredit      = creditOf(u);
+                          // الدين "العام" بس (من غير حصة الجرود اللي بتتسدد من تفصيل الجرود تحت)
+                          const uGeneralDebt = generalDebtOf(u);
                           return (
                             <div key={u.unitId} className="rounded-xl p-4" style={{ background: "rgba(128,128,128,.03)", border: "1px solid var(--card-border)" }}>
                               <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
@@ -784,7 +829,16 @@ export default function AdminFinancePage() {
                                   <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(99,102,241,.1)", color: "#6366f1" }}>
                                     {u.sharesCount} سهم — {u.sharePercentage?.toFixed(1)}%
                                   </span>
-                                  {u.debtAmount > 0 && (
+                                  {/* رصيد دائن على مستوى الوحدة */}
+                                  {uCredit > 0.009 && (
+                                    <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold"
+                                      style={{ background: "rgba(14,165,233,.1)", color: "#0ea5e9" }}>
+                                      <PiggyBank className="w-3 h-3" /> رصيد متبقي {formatCurrency(uCredit)}
+                                    </span>
+                                  )}
+                                  {/* سداد عام — بس على حصته الأساسية (شامل مصاريف الجرود المفتوحة، بس مش المقفولة).
+                                      دين الجرود المقفولة له زرار "سداد" منفصل جوه تفصيل الجرود تحت. */}
+                                  {uGeneralDebt > 0.009 && (
                                     <button
                                       onClick={() => openPayModal({
                                         shareholderId:   sh.shareholderId,
@@ -793,23 +847,43 @@ export default function AdminFinancePage() {
                                         unitName:        u.unitName ?? null,
                                         auditId:         null,
                                         auditName:       "سداد عام",
-                                        debtAmount:      u.debtAmount,
+                                        debtAmount:      uGeneralDebt,
+                                        currentCredit:   uCredit,
                                       })}
                                       className="text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-all"
                                       style={{ background: "rgba(44, 126, 117, 0.1)", color: "#10b981", border: "1px solid rgba(77, 233, 178, 0.2)" }}>
-                                      سداد كامل ({formatCurrency(u.debtAmount)})
+                                      سداد كامل ({formatCurrency(uGeneralDebt)})
+                                    </button>
+                                  )}
+                                  {/* لو الدين العام اتسدد بالكامل — يفضل السداد متاح كسداد مقدَّم (رصيد دائن) */}
+                                  {uGeneralDebt <= 0.009 && (
+                                    <button
+                                      onClick={() => openPayModal({
+                                        shareholderId:   sh.shareholderId,
+                                        shareholderName: sh.shareholderName ?? null,
+                                        unitId:          u.unitId,
+                                        unitName:        u.unitName ?? null,
+                                        auditId:         null,
+                                        auditName:       "سداد عام",
+                                        debtAmount:      0,
+                                        currentCredit:   uCredit,
+                                      })}
+                                      className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-all"
+                                      style={{ background: "rgba(44, 126, 117, 0.1)",  color: "#10b981", border: "1px solid rgba(77, 233, 178, 0.2)" }}>
+                                      <PiggyBank className="w-3 h-3" /> سداد مقدَّم
                                     </button>
                                   )}
                                 </div>
                               </div>
 
-                              {/* الكروت الأربعة */}
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                              {/* الكروت */}
+                              <div className={`grid grid-cols-2 ${uCredit > 0.009 ? "sm:grid-cols-5" : "sm:grid-cols-4"} gap-2 mb-3`}>
                                 {[
                                   { label: "إجمالي التكلفة", value: u.totalUnitCost,  clr: "#ef4444" },
                                   { label: "حصته المطلوبة",  value: u.owedAmount,     clr: "#6366f1" },
                                   { label: "سدَّد",          value: u.paidAmount,     clr: "#10b981" },
                                   { label: "الدين المتبقي",  value: u.debtAmount,     clr: uDebt ? "#f59e0b" : "#10b981" },
+                                  ...(uCredit > 0.009 ? [{ label: "رصيد متبقي", value: uCredit, clr: "#0ea5e9" }] : []),
                                 ].map(({ label, value, clr }) => (
                                   <div key={label} className="rounded-lg p-2.5 text-center" style={{ background: `${clr}10` }}>
                                     <p className="text-[10px] font-medium mb-1" style={{ color: "var(--muted)" }}>{label}</p>
@@ -831,6 +905,14 @@ export default function AdminFinancePage() {
                                 <span className="text-xs font-bold" style={{ color: uDebt ? "#f59e0b" : "#10b981" }}>
                                   {uDebt ? `دين: ${formatCurrency(u.debtAmount)}` : "مسدَّد ✓"}
                                 </span>
+                                {uCredit > 0.009 && (
+                                  <>
+                                    <span className="text-xs" style={{ color: "var(--muted)" }}>+</span>
+                                    <span className="text-xs font-bold" style={{ color: "#0ea5e9" }}>
+                                      رصيد متبقي: {formatCurrency(uCredit)}
+                                    </span>
+                                  </>
+                                )}
                               </div>
 
                               {/* ── تفصيل الجرود مع السداد ── */}
@@ -848,9 +930,24 @@ export default function AdminFinancePage() {
                                   );
                                 }
 
-                                // المدفوعات من الـ state المحلي
-                                const paidByAudit = (auditId: number) =>
-                                  shPayments[`${u.unitId}-${auditId}-${sh.shareholderId}`] ?? 0;
+                                
+                                let auditPaidPool = Math.max(auditPaidOf(u), 0);
+
+                                const auditRows = uAudits.map(a => {
+                                  const myShare  = a.shareholderShares.find(s => s.shareholderId === sh.shareholderId);
+                                  const isEstimate = !myShare;
+                                  const owed = myShare?.shareAmount
+                                    ?? (a.totalExpenses * (u.sharePercentage / 100));
+                                  const paid = Math.min(auditPaidPool, owed);
+                                  auditPaidPool = Math.max(0, auditPaidPool - paid);
+                                  const debt    = Math.max(0, owed - paid);
+                                  const settled = debt <= 0.009;
+                                  return { audit: a, owed, paid, debt, settled, isEstimate };
+                                });
+
+                                const totalOwed  = auditRows.reduce((s, r) => s + r.owed,  0);
+                                const totalPaid  = auditRows.reduce((s, r) => s + r.paid,  0);
+                                const totalDebt  = auditRows.reduce((s, r) => s + r.debt,  0);
 
                                 return (
                                   <div className="rounded-lg overflow-hidden border mt-3" style={{ borderColor: "var(--card-border)" }}>
@@ -870,85 +967,65 @@ export default function AdminFinancePage() {
                                         </tr>
                                       </thead>
                                       <tbody>
-                                        {uAudits.map(a => {
-                                          const myShare  = a.shareholderShares.find(s => s.shareholderId === sh.shareholderId);
-                                          // لو shareholderShares فاضي (mock/pending) — احسب من نسبة المساهم (تقديري)
-                                          const isEstimate = !myShare;
-                                          const owed = myShare?.shareAmount
-                                            ?? (a.totalExpenses * (u.sharePercentage / 100));
-                                          const paid     = paidByAudit(a.id);
-                                          const debt     = Math.max(0, owed - paid);
-                                          const settled  = debt === 0;
-                                          return (
-                                            <tr key={a.id} style={{ borderBottom: "1px solid var(--card-border)" }}>
-                                              <td style={{ padding: "8px 10px", color: "var(--foreground)", fontWeight: 600 }}>
-                                                {a.name}
-                                              </td>
-                                              <td style={{ padding: "8px 10px", color: "var(--muted)", textAlign: "center", whiteSpace: "nowrap" }}>
-                                                {formatDate(a.fromDate)} — {formatDate(a.toDate)}
-                                              </td>
-                                              <td style={{ padding: "8px 10px", fontWeight: 700, color: "#ef4444", textAlign: "center" }}>
-                                                {formatCurrency(owed)}
-                                                {isEstimate && (
-                                                  <span
-                                                    title="تقديري — لسه مفيش بيانات توزيع دقيقة من الجرد"
-                                                    style={{ color: "#f59e0b", fontSize: 10, marginRight: 2 }}>
-                                                    *
-                                                  </span>
-                                                )}
-                                              </td>
-                                              <td style={{ padding: "8px 10px", fontWeight: 700, color: "#10b981", textAlign: "center" }}>
-                                                {formatCurrency(paid)}
-                                              </td>
-                                              <td style={{ padding: "8px 10px", fontWeight: 800, textAlign: "center",
-                                                color: settled ? "#10b981" : "#f59e0b" }}>
-                                                {settled ? "✓ مسدَّد" : formatCurrency(debt)}
-                                              </td>
-                                              <td style={{ padding: "8px 10px", textAlign: "center" }}>
-                                                {!settled && (
-                                                  <button
-                                                    onClick={() => openPayModal({
-                                                      shareholderId:   sh.shareholderId,
-                                                      shareholderName: sh.shareholderName ?? null,
-                                                      unitId:          u.unitId,
-                                                      unitName:        u.unitName ?? null,
-                                                      auditId:         a.id,
-                                                      auditName:       a.name,
-                                                      debtAmount:      debt,
-                                                    })}                                                    className="text-[11px] font-semibold px-2 py-1 rounded-lg transition-all"
-                                                    style={{ background: "rgba(16,185,129,.1)", color: "#10b981", border: "1px solid rgba(16,185,129,.2)" }}>
-                                                    سداد
-                                                  </button>
-                                                )}
-                                              </td>
-                                            </tr>
-                                          );
-                                        })}
+                                        {auditRows.map(({ audit: a, owed, paid, debt, settled, isEstimate }) => (
+                                          <tr key={a.id} style={{ borderBottom: "1px solid var(--card-border)" }}>
+                                            <td style={{ padding: "8px 10px", color: "var(--foreground)", fontWeight: 600 }}>
+                                              {a.name}
+                                            </td>
+                                            <td style={{ padding: "8px 10px", color: "var(--muted)", textAlign: "center", whiteSpace: "nowrap" }}>
+                                              {formatDate(a.fromDate)} — {formatDate(a.toDate)}
+                                            </td>
+                                            <td style={{ padding: "8px 10px", fontWeight: 700, color: "#ef4444", textAlign: "center" }}>
+                                              {formatCurrency(owed)}
+                                              {isEstimate && (
+                                                <span
+                                                  title="تقديري — لسه مفيش بيانات توزيع دقيقة من الجرد"
+                                                  style={{ color: "#f59e0b", fontSize: 10, marginRight: 2 }}>
+                                                  *
+                                                </span>
+                                              )}
+                                            </td>
+                                            <td style={{ padding: "8px 10px", fontWeight: 700, color: "#10b981", textAlign: "center" }}>
+                                              {formatCurrency(paid)}
+                                            </td>
+                                            <td style={{ padding: "8px 10px", fontWeight: 800, textAlign: "center",
+                                              color: settled ? "#10b981" : "#f59e0b" }}>
+                                              {settled ? "✓ مسدَّد" : formatCurrency(debt)}
+                                            </td>
+                                            <td style={{ padding: "8px 10px", textAlign: "center" }}>
+                                              {!settled && (
+                                                <button
+                                                  onClick={() => openPayModal({
+                                                    shareholderId:   sh.shareholderId,
+                                                    shareholderName: sh.shareholderName ?? null,
+                                                    unitId:          u.unitId,
+                                                    unitName:        u.unitName ?? null,
+                                                    auditId:         a.id,
+                                                    auditName:       a.name,
+                                                    debtAmount:      debt,
+                                                    currentCredit:   uCredit,
+                                                  })}
+                                                  className="text-[11px] font-semibold px-2 py-1 rounded-lg transition-all"
+                                                  style={{ background: "rgba(16,185,129,.1)", color: "#10b981", border: "1px solid rgba(16,185,129,.2)" }}>
+                                                  سداد
+                                                </button>
+                                              )}
+                                            </td>
+                                          </tr>
+                                        ))}
                                       </tbody>
                                       <tfoot>
                                         <tr style={{ borderTop: "2px solid var(--card-border)", background: "rgba(128,128,128,.04)" }}>
                                           <td colSpan={2} style={{ padding: "7px 10px", fontWeight: 700, fontSize: 11, color: "var(--foreground)" }}>الإجمالي</td>
                                           <td style={{ padding: "7px 10px", fontWeight: 700, color: "#ef4444", textAlign: "center" }}>
-                                            {formatCurrency(uAudits.reduce((s, a) => {
-                                              const ms = a.shareholderShares.find(x => x.shareholderId === sh.shareholderId);
-                                              return s + (ms?.shareAmount ?? (a.totalExpenses * (u.sharePercentage / 100)));
-                                            }, 0))}
+                                            {formatCurrency(totalOwed)}
                                           </td>
                                           <td style={{ padding: "7px 10px", fontWeight: 700, color: "#10b981", textAlign: "center" }}>
-                                            {formatCurrency(uAudits.reduce((s, a) => s + paidByAudit(a.id), 0))}
+                                            {formatCurrency(totalPaid)}
                                           </td>
                                           <td style={{ padding: "7px 10px", fontWeight: 800, textAlign: "center",
-                                            color: uAudits.reduce((s, a) => {
-                                              const owed = (a.shareholderShares.find(x => x.shareholderId === sh.shareholderId)?.shareAmount ?? (a.totalExpenses * (u.sharePercentage / 100)));
-                                              return s + Math.max(0, owed - paidByAudit(a.id));
-                                            }, 0) === 0 ? "#10b981" : "#f59e0b" }}>
-                                            {(() => {
-                                              const totalDebtAudits = uAudits.reduce((s, a) => {
-                                                const owed = (a.shareholderShares.find(x => x.shareholderId === sh.shareholderId)?.shareAmount ?? (a.totalExpenses * (u.sharePercentage / 100)));
-                                                return s + Math.max(0, owed - paidByAudit(a.id));
-                                              }, 0);
-                                              return totalDebtAudits === 0 ? "✓ مسدَّد" : formatCurrency(totalDebtAudits);
-                                            })()}
+                                            color: totalDebt <= 0.009 ? "#10b981" : "#f59e0b" }}>
+                                            {totalDebt <= 0.009 ? "✓ مسدَّد" : formatCurrency(totalDebt)}
                                           </td>
                                           <td />
                                         </tr>
@@ -1052,7 +1129,7 @@ export default function AdminFinancePage() {
             <BookOpen className="w-4 h-4 shrink-0 mt-0.5" style={{ color: "#6366f1" }} />
             <p className="text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
               الجرد هيبقى <strong style={{ color: "#f59e0b" }}>منتظر</strong> طول الفترة، وكل المصاريف اللي بتتسجل فيها بتتحسب تلقائياً تحته.
-              لما الفترة تخلص، الجرد بيتقفل تلقائياً ويتوزع الدين على المساهمين.
+              لما الفترة تخلص، الجرد بيتقفل تلقائياً ويتوزع الدين على المساهمين — وأي رصيد دائن عند المساهم بيتخصم منه أولاً.
             </p>
           </div>
 
@@ -1143,19 +1220,25 @@ export default function AdminFinancePage() {
 
             {/* معلومات الجرد / السداد */}
             <div className="px-3.5 py-3 rounded-xl"
-              style={payTarget.auditId
+              style={payTarget.capped
                 ? { background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.15)" }
                 : { background: "rgba(99,102,241,.06)", border: "1px solid rgba(99,102,241,.15)" }}>
               <p className="text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>
-                {payTarget.auditId ? "الدين المتبقي في هذا الجرد" : "سداد عام على المشروع"}
+                {payTarget.capped ? "الدين المتبقي في هذا الجرد" : "الدين المتبقي على المشروع (سداد عام)"}
               </p>
-              <p className="text-xl font-bold" style={{ color: payTarget.auditId ? "#ef4444" : "#6366f1" }}>
+              <p className="text-xl font-bold" style={{ color: payTarget.capped ? "#ef4444" : "#6366f1" }}>
                 {formatCurrency(payTarget.maxAmount)}
               </p>
               <p className="text-[11px] mt-0.5" style={{ color: "var(--muted)" }}>
                 {payTarget.unitName}
-                {payTarget.auditId ? ` — ${payTarget.auditName}` : " — سيُسجَّل بدون ربط بجرد محدد"}
+                {payTarget.capped ? ` — ${payTarget.auditName}` : " — سيُسجَّل بدون ربط بجرد محدد"}
               </p>
+              {/* الرصيد الدائن الحالي، للعلم فقط */}
+              {payTarget.currentCredit > 0.009 && (
+                <p className="text-[11px] mt-1.5 flex items-center gap-1" style={{ color: "#0ea5e9" }}>
+                  <PiggyBank className="w-3 h-3" /> رصيده المتبقي الحالي: {formatCurrency(payTarget.currentCredit)}
+                </p>
+              )}
             </div>
 
             {/* المبلغ */}
@@ -1164,18 +1247,31 @@ export default function AdminFinancePage() {
                 المبلغ (ج.م) <span className="text-red-400">*</span>
               </label>
               <input type="number" min={0.01} step="0.01" required
-                max={payTarget.maxAmount}
+                {...(payTarget.capped ? { max: payTarget.maxAmount } : {})}
                 value={payForm.amount}
                 onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))}
-                placeholder={`0.00 (الحد الأقصى ${formatCurrency(payTarget.maxAmount)})`}
+                placeholder={payTarget.capped
+                  ? `0.00 (الحد الأقصى ${formatCurrency(payTarget.maxAmount)})`
+                  : "0.00"}
                 className={ic} style={{ ...iStyle(), fontWeight: 700 }} />
-              {/* زرار سداد كامل */}
-              <button type="button"
-                onClick={() => setPayForm(p => ({ ...p, amount: payTarget.maxAmount.toFixed(2) }))}
-                className="mt-1.5 text-xs font-semibold"
-                style={{ color: "#10b981" }}>
-                سداد كامل ({formatCurrency(payTarget.maxAmount)})
-              </button>
+
+              {/* زرار سداد كامل — بيظهر بس لو فيه دين فعلي */}
+              {payTarget.maxAmount > 0.009 && (
+                <button type="button"
+                  onClick={() => setPayForm(p => ({ ...p, amount: payTarget.maxAmount.toFixed(2) }))}
+                  className="mt-1.5 text-xs font-semibold"
+                  style={{ color: "#10b981" }}>
+                  سداد كامل ({formatCurrency(payTarget.maxAmount)})
+                </button>
+              )}
+
+              {/* توضيح إن الزيادة في السداد العام بتتحول لرصيد دائن */}
+              {!payTarget.capped && (
+                <p className="text-[11px] mt-1.5 leading-relaxed" style={{ color: "var(--muted)" }}>
+                  لو دفع أكتر من الدين المتبقي، الفرق هيتسجل كـ<strong style={{ color: "#0ea5e9" }}> رصيد متبقي</strong> للمساهم
+                  ويتخصم تلقائياً من أي جرد جديد يتقفل بعد كده.
+                </p>
+              )}
             </div>
 
             {/* التاريخ */}
