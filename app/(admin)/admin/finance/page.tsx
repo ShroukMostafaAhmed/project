@@ -1079,15 +1079,14 @@ async function handlePay(e: React.FormEvent) {
           </div>
           {/* التاريخ + المبلغ */}
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold mb-1.5" style={{ color: "var(--muted)" }}>
-                التاريخ
-                <span className="mr-1.5 text-[10px] font-normal" style={{ color: "var(--muted)" }}>(اليوم — ثابت)</span>
-              </label>
-              <input type="date" required value={form.date}
-                readOnly
-                className={ic} style={{ ...iStyle(), opacity: .75, cursor: "not-allowed" }} />
-            </div>
+           <div>
+  <label className="block text-xs font-bold mb-1.5" style={{ color: "var(--muted)" }}>
+    التاريخ <span className="text-red-400">*</span>
+  </label>
+  <input type="date" required value={form.date}
+    onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
+    className={ic} style={iStyle()} />
+</div>
           <div>
   <label className="block text-xs font-bold mb-1.5" style={{ color: "var(--muted)" }}>المبلغ (ج.م) <span className="text-red-400">*</span></label>
   <input type="number" min={0.01} step="0.01" required
