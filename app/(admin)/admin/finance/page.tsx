@@ -202,15 +202,11 @@ export default function AdminFinancePage() {
     setShowPayModal(true);
   }
 
-  async function handlePay(e: React.FormEvent) {
+async function handlePay(e: React.FormEvent) {
     e.preventDefault();
     if (!payTarget) return;
     const amt = parseFloat(payForm.amount);
     if (!amt || amt <= 0) { setPayErr("أدخل مبلغ صح"); return; }
-    if (payTarget.capped && amt > payTarget.maxAmount + 0.01) {
-      setPayErr(`المبلغ (${formatCurrency(amt)}) أكبر من الدين المتبقي في هذا الجرد (${formatCurrency(payTarget.maxAmount)})`);
-      return;
-    }
     setPaySaving(true); setPayErr("");
     try {
       await api.finances.create({
@@ -797,7 +793,7 @@ export default function AdminFinancePage() {
                         ))}
                         {totalCredit > 0.009 && (
                           <div className="text-center">
-                            <p className="text-[11px] mb-1" style={{ color: "var(--muted)" }}>رصيد متبقي</p>
+                            <p className="text-[11px] mb-1" style={{ color: "var(--muted)" }}>رصيدي </p>
                             <p className="text-sm font-bold" style={{ color: "#0ea5e9" }}>{formatCurrency(totalCredit)}</p>
                           </div>
                         )}
@@ -833,7 +829,7 @@ export default function AdminFinancePage() {
                                   {uCredit > 0.009 && (
                                     <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold"
                                       style={{ background: "rgba(14,165,233,.1)", color: "#0ea5e9" }}>
-                                      <PiggyBank className="w-3 h-3" /> رصيد متبقي {formatCurrency(uCredit)}
+                                      <PiggyBank className="w-3 h-3" />رصيدي {formatCurrency(uCredit)}
                                     </span>
                                   )}
                                   {/* سداد عام — بس على حصته الأساسية (شامل مصاريف الجرود المفتوحة، بس مش المقفولة).
@@ -883,7 +879,7 @@ export default function AdminFinancePage() {
                                   { label: "حصته المطلوبة",  value: u.owedAmount,     clr: "#6366f1" },
                                   { label: "سدَّد",          value: u.paidAmount,     clr: "#10b981" },
                                   { label: "الدين المتبقي",  value: u.debtAmount,     clr: uDebt ? "#f59e0b" : "#10b981" },
-                                  ...(uCredit > 0.009 ? [{ label: "رصيد متبقي", value: uCredit, clr: "#0ea5e9" }] : []),
+                                  ...(uCredit > 0.009 ? [{ label: "رصيدي ", value: uCredit, clr: "#0ea5e9" }] : []),
                                 ].map(({ label, value, clr }) => (
                                   <div key={label} className="rounded-lg p-2.5 text-center" style={{ background: `${clr}10` }}>
                                     <p className="text-[10px] font-medium mb-1" style={{ color: "var(--muted)" }}>{label}</p>
@@ -909,7 +905,7 @@ export default function AdminFinancePage() {
                                   <>
                                     <span className="text-xs" style={{ color: "var(--muted)" }}>+</span>
                                     <span className="text-xs font-bold" style={{ color: "#0ea5e9" }}>
-                                      رصيد متبقي: {formatCurrency(uCredit)}
+                                      رصيدي : {formatCurrency(uCredit)}
                                     </span>
                                   </>
                                 )}
@@ -1092,12 +1088,14 @@ export default function AdminFinancePage() {
                 readOnly
                 className={ic} style={{ ...iStyle(), opacity: .75, cursor: "not-allowed" }} />
             </div>
-            <div>
-              <label className="block text-xs font-bold mb-1.5" style={{ color: "var(--muted)" }}>المبلغ (ج.م) <span className="text-red-400">*</span></label>
-              <input type="number" min={0} step="0.01" required value={form.amount}
-                onChange={e => setForm(p => ({ ...p, amount: e.target.value }))}
-                placeholder="0.00" className={ic} style={{ ...iStyle(), fontWeight: 700 }} />
-            </div>
+          <div>
+  <label className="block text-xs font-bold mb-1.5" style={{ color: "var(--muted)" }}>المبلغ (ج.م) <span className="text-red-400">*</span></label>
+  <input type="number" min={0.01} step="0.01" required
+    value={form.amount}
+    onChange={e => setForm(p => ({ ...p, amount: e.target.value }))}
+    placeholder="0.00"
+    className={ic} style={{ ...iStyle(), fontWeight: 700 }} />
+</div>
           </div>
           {/* ملاحظات */}
           <div>
@@ -1246,14 +1244,11 @@ export default function AdminFinancePage() {
               <label className="block text-xs font-bold mb-1.5" style={{ color: "var(--muted)" }}>
                 المبلغ (ج.م) <span className="text-red-400">*</span>
               </label>
-              <input type="number" min={0.01} step="0.01" required
-                {...(payTarget.capped ? { max: payTarget.maxAmount } : {})}
-                value={payForm.amount}
-                onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))}
-                placeholder={payTarget.capped
-                  ? `0.00 (الحد الأقصى ${formatCurrency(payTarget.maxAmount)})`
-                  : "0.00"}
-                className={ic} style={{ ...iStyle(), fontWeight: 700 }} />
+             <input type="number" min={0.01} step="0.01" required
+  value={payForm.amount}
+  onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))}
+  placeholder="0.00"
+  className={ic} style={{ ...iStyle(), fontWeight: 700 }} />
 
               {/* زرار سداد كامل — بيظهر بس لو فيه دين فعلي */}
               {payTarget.maxAmount > 0.009 && (
@@ -1265,13 +1260,8 @@ export default function AdminFinancePage() {
                 </button>
               )}
 
-              {/* توضيح إن الزيادة في السداد العام بتتحول لرصيد دائن */}
-              {!payTarget.capped && (
-                <p className="text-[11px] mt-1.5 leading-relaxed" style={{ color: "var(--muted)" }}>
-                  لو دفع أكتر من الدين المتبقي، الفرق هيتسجل كـ<strong style={{ color: "#0ea5e9" }}> رصيد متبقي</strong> للمساهم
-                  ويتخصم تلقائياً من أي جرد جديد يتقفل بعد كده.
-                </p>
-              )}
+             
+           
             </div>
 
             {/* التاريخ */}
