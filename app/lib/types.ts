@@ -511,9 +511,9 @@ export interface UnitAuditDto {
   unitName?:            string | null;
   name:                 string;
   fromDate:             string;
-  toDate:               string;
-  status:               UnitAuditStatus;  // Pending=0, Closed=1
-  totalExpenses:        number;      // حي لو Pending، نهائي لو Closed
+  toDate?:              string | null;  // اختياري — الجرد يُقفل يدوياً
+  status:               UnitAuditStatus;
+  totalExpenses:        number;
   shareholderShares:    UnitAuditShareholderShare[];
   previousUnitAuditId?: number | null;
   closedAt?:            string | null;
@@ -524,8 +524,8 @@ export interface UnitAuditDto {
 export interface CreateUnitAuditDto {
   name:                 string;
   fromDate:             string;
-  toDate:               string;
   previousUnitAuditId?: number | null;
+  // toDate أُزيل — الجرد مفتوح ويُقفل يدوياً بالزرار
 }
 
 /** GET /api/Units/{unitId}/audits/current-expenses — معاينة حية للجرد الـ Pending */

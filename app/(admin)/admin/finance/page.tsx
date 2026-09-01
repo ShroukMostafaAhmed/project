@@ -106,7 +106,9 @@ export default function AdminFinancePage() {
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [auditSaving,    setAuditSaving]    = useState(false);
   const [auditFormErr,   setAuditFormErr]   = useState("");
-  const [auditForm, setAuditForm] = useState({ name: "", fromDate: "", toDate: "" });
+  const [auditForm, setAuditForm] = useState({ name: "", fromDate: "" });
+  const [closeConfirmId, setCloseConfirmId] = useState<number | null>(null);
+  const [closingAudit,   setClosingAudit]   = useState(false);
 
   const [shReport,   setShReport]   = useState<ShareholderFinanceReportDto[]>([]);
   const [shLoading,  setShLoading]  = useState(false);
@@ -303,39 +305,50 @@ async function handlePay(e: React.FormEvent) {
   }
 
   /* ── unit audit ── */
-  const lastAudit = useMemo(() =>
-    unitAudits.length
-      ? [...unitAudits].sort((a, b) => new Date(b.toDate).getTime() - new Date(a.toDate).getTime())[0]
-      : null,
-    [unitAudits]
-  );
+  const lastClosedAudit = useMemo(() => {
+    const closed = unitAudits.filter(a => a.status === UnitAuditStatus.Closed && a.closedAt);
+    if (!closed.length) return null;
+    return [...closed].sort(
+      (a, b) => new Date(b.closedAt as string).getTime() - new Date(a.closedAt as string).getTime()
+    )[0];
+  }, [unitAudits]);
 
   const hasPendingAudit = unitAudits.some(a => a.status === UnitAuditStatus.Pending);
 
+  /* ── دالة القفل اليدوي ── */
+  async function handleCloseAudit() {
+    if (!closeConfirmId || activeUnitId === null || activeUnitId === "all") return;
+    setClosingAudit(true);
+    try {
+      await api.unitAudits.close(activeUnitId as number, closeConfirmId);
+      setCloseConfirmId(null);
+      await loadUnitAudits();
+      setShReport([]);
+    } catch (err) { alert((err as Error).message); }
+    finally { setClosingAudit(false); }
+  }
+
   function openAuditModal() {
-    const autoFrom = lastAudit
-      ? (() => { const d = new Date(lastAudit.toDate); d.setDate(d.getDate() + 1); return toDateOnlyString(d); })()
+    const autoFrom = lastClosedAudit
+      ? (() => { const d = new Date(lastClosedAudit.closedAt as string); d.setDate(d.getDate() + 1); return toDateOnlyString(d); })()
       : "";
-    setAuditForm({ name: `جرد ${unitAudits.length + 1}`, fromDate: autoFrom, toDate: "" });
+    setAuditForm({ name: `جرد ${unitAudits.length + 1}`, fromDate: autoFrom });
     setAuditFormErr("");
     setShowAuditModal(true);
   }
 
   async function handleAuditSave(e: React.FormEvent) {
     e.preventDefault();
-    if (!auditForm.fromDate || !auditForm.toDate) { setAuditFormErr("اختر الفترة أولاً"); return; }
-    if (auditForm.fromDate > auditForm.toDate) { setAuditFormErr("تاريخ البداية لازم يكون قبل النهاية"); return; }
+    if (!auditForm.fromDate) { setAuditFormErr("اختر تاريخ البداية أولاً"); return; }
     setAuditSaving(true); setAuditFormErr("");
     try {
       await api.unitAudits.create(activeUnitId as number, {
         name: auditForm.name || `جرد ${unitAudits.length + 1}`,
         fromDate: auditForm.fromDate,
-        toDate:   auditForm.toDate,
-        previousUnitAuditId: lastAudit?.id ?? null,
+        previousUnitAuditId: lastClosedAudit?.id ?? null,
       });
       setShowAuditModal(false);
       await loadUnitAudits();
-      // reset تبويب المساهمين عشان يتحدث لما يرجعله
       setShReport([]);
     } catch (err) { setAuditFormErr((err as Error).message); }
     finally { setAuditSaving(false); }
@@ -501,10 +514,6 @@ async function handlePay(e: React.FormEvent) {
                     .map((audit, idx) => {
                       const isExp     = expandedAudit === audit.id;
                       const isPending = audit.status === UnitAuditStatus.Pending;
-                      const today     = new Date().toISOString().split("T")[0];
-                      const closesIn  = isPending
-                        ? Math.ceil((new Date(audit.toDate).getTime() - new Date(today).getTime()) / 86400000)
-                        : 0;
                       return (
                         <div key={audit.id}>
                           {/* صف الجرد */}
@@ -522,7 +531,10 @@ async function handlePay(e: React.FormEvent) {
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{audit.name}</p>
                               <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
-                                {formatDate(audit.fromDate)} — {formatDate(audit.toDate)}
+                                من {formatDate(audit.fromDate)}
+                                {!isPending && audit.closedAt
+                                  ? ` — اتقفل في ${formatDate(audit.closedAt)}`
+                                  : " — لسه مفتوح"}
                               </p>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
@@ -531,10 +543,17 @@ async function handlePay(e: React.FormEvent) {
                                 style={isPending
                                   ? { background: "rgba(245,158,11,.12)", color: "#f59e0b" }
                                   : { background: "rgba(16,185,129,.1)",  color: "#10b981" }}>
-                                {isPending
-                                  ? (closesIn > 0 ? `⏳ يقفل بعد ${closesIn} يوم` : "⏳ جاري القفل...")
-                                  : "✓ مقفول"}
+                                {isPending ? "⏳ مفتوح" : "✓ مقفول"}
                               </span>
+                              {/* زرار قفل — يظهر فقط للجرود المفتوحة */}
+                              {isPending && (
+                                <button
+                                  onClick={e => { e.stopPropagation(); setCloseConfirmId(audit.id); }}
+                                  className="text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-all"
+                                  style={{ background: "rgba(16,185,129,.1)", color: "#10b981", border: "1px solid rgba(16,185,129,.2)" }}>
+                                  قفل الجرد
+                                </button>
+                              )}
                               <div className="text-right">
                                 <p className="text-sm font-bold" style={{ color: isPending ? "#f59e0b" : "#ef4444" }}>
                                   {formatCurrency(audit.totalExpenses)}
@@ -1139,42 +1158,24 @@ async function handlePay(e: React.FormEvent) {
           </div>
 
           {/* من / إلى */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--muted)" }}>
-                من تاريخ <span className="text-red-400">*</span>
-                {lastAudit && <span className="text-[10px] mr-1" style={{ color: "#6366f1" }}>(مقفول)</span>}
-              </label>
-              <input type="date" required value={auditForm.fromDate}
-                readOnly={!!lastAudit}
-                onChange={e => { if (!lastAudit) setAuditForm(p => ({ ...p, fromDate: e.target.value })); }}
-                className={ic}
-                style={lastAudit ? { ...iStyle(), opacity: .6, cursor: "not-allowed" } : iStyle()} />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--muted)" }}>
-                إلى تاريخ <span className="text-red-400">*</span>
-              </label>
-              <input type="date" required value={auditForm.toDate}
-                min={auditForm.fromDate || undefined}
-                onChange={e => setAuditForm(p => ({ ...p, toDate: e.target.value }))}
-                className={ic} style={iStyle()} />
-            </div>
+          <div>
+            <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--muted)" }}>
+              من تاريخ <span className="text-red-400">*</span>
+              {lastClosedAudit && <span className="text-[10px] mr-1" style={{ color: "#6366f1" }}>(بعد آخر جرد بيوم)</span>}
+            </label>
+            <input type="date" required value={auditForm.fromDate}
+              readOnly={!!lastClosedAudit}
+              onChange={e => { if (!lastClosedAudit) setAuditForm(p => ({ ...p, fromDate: e.target.value })); }}
+              className={ic}
+              style={lastClosedAudit ? { ...iStyle(), opacity: .6, cursor: "not-allowed" } : iStyle()} />
           </div>
 
-          {/* معاينة الفترة */}
-          {auditForm.fromDate && auditForm.toDate && (
+          {/* معاينة */}
+          {auditForm.fromDate && (
             <div className="px-3.5 py-3 rounded-xl text-xs"
               style={{ background: "rgba(16,185,129,.06)", border: "1px solid rgba(16,185,129,.15)" }}>
               <p style={{ color: "var(--muted)" }}>
-                الجرد هيغطي من{" "}
-                <strong style={{ color: "#10b981" }}>{formatDate(auditForm.fromDate)}</strong>
-                {" "}لـ{" "}
-                <strong style={{ color: "#10b981" }}>{formatDate(auditForm.toDate)}</strong>
-              </p>
-              <p className="mt-1" style={{ color: "var(--muted)" }}>
-                الدين هيتوزع تلقائياً بعد{" "}
-                <strong style={{ color: "#10b981" }}>{formatDate(auditForm.toDate)}</strong>
+                الجرد هيبدأ من <strong style={{ color: "#10b981" }}>{formatDate(auditForm.fromDate)}</strong> ويفضل مفتوح لحد ما تقفله بنفسك.
               </p>
             </div>
           )}
@@ -1186,7 +1187,7 @@ async function handlePay(e: React.FormEvent) {
           )}
 
           <div className="flex gap-2 pt-1">
-            <button type="submit" disabled={auditSaving || !auditForm.fromDate || !auditForm.toDate}
+            <button type="submit" disabled={auditSaving || !auditForm.fromDate}
               className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
               style={{ background: "linear-gradient(135deg,#10b981,#059669)" }}>
               {auditSaving ? "جاري الحفظ..." : "إنشاء الجرد"}
@@ -1298,6 +1299,24 @@ async function handlePay(e: React.FormEvent) {
             </div>
           </form>
         )}
+      </Modal>
+
+      {/* ════ مودال تأكيد قفل الجرد ════ */}
+      <Modal open={!!closeConfirmId} onClose={() => setCloseConfirmId(null)} title="تأكيد قفل الجرد" size="sm">
+        <p className="text-sm mb-3" style={{ color: "var(--muted)" }}>
+          هل أنت متأكد من قفل هذا الجرد؟ الدين هيتوزع على المساهمين حسب نسبهم فوراً، ومش هينفع ترجع فيه بعد كده.
+        </p>
+        <div className="flex gap-2">
+          <button onClick={handleCloseAudit} disabled={closingAudit}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+            style={{ background: "#10b981" }}>
+            {closingAudit ? "جاري القفل..." : "قفل الجرد"}
+          </button>
+          <button onClick={() => setCloseConfirmId(null)}
+            className="flex-1 py-2.5 rounded-xl text-sm font-medium border" style={cStyle()}>
+            إلغاء
+          </button>
+        </div>
       </Modal>
 
     </DashboardShell>

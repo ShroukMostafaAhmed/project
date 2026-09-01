@@ -68,11 +68,11 @@ export default function ShareholderUnitsPage() {
     e.preventDefault();
     setSaving(true); setFormErr("");
     try {
-      await api.shareholderUnits.create({
-        shareholderId: parseInt(form.shareholderId),
-        unitId:        parseInt(form.unitId),
-        sharesCount:   parseInt(form.sharesCount),
-      });
+     await api.shareholderUnits.create({
+  shareholderId: parseInt(form.shareholderId),
+  unitId:        parseInt(form.unitId),
+  sharesCount:   parseFloat(form.sharesCount),
+});
       await reload();
       setShowAdd(false);
       setForm({ shareholderId:"", unitId:"", sharesCount:"" });
@@ -163,9 +163,9 @@ export default function ShareholderUnitsPage() {
               const count = shareholderUnits.filter(su => su.unitId === u.id).length;
               const shares = shareholderUnits.filter(su => su.unitId === u.id).reduce((s,su)=>s+su.sharesCount,0);
               return (
-                <option key={u.id} value={u.id}>
-                  {u.name ?? u.code} — {count} مساهم · {shares} سهم
-                </option>
+               <option key={u.id} value={u.id}>
+  {u.name ?? u.code} — {count} مساهم · {shares.toLocaleString("ar-EG", { maximumFractionDigits: 2 })} سهم
+</option>
               );
             })}
           </select>
@@ -306,8 +306,9 @@ export default function ShareholderUnitsPage() {
 
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold" style={{ color:"#6366f1" }}>{su.sharesCount}</span>
-                        <span className="text-xs" style={{ color:"var(--muted)" }}>سهم</span>
+<span className="text-lg font-bold" style={{ color:"#6366f1" }}>
+  {su.sharesCount.toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
+</span>                        <span className="text-xs" style={{ color:"var(--muted)" }}>سهم</span>
                       </div>
                     </td>
 
@@ -341,8 +342,8 @@ export default function ShareholderUnitsPage() {
               style={{ borderColor:"var(--card-border)", background:"rgba(128,128,128,.04)", color:"var(--muted)" }}>
               <span>إجمالي الأسهم في النتائج</span>
               <span className="font-bold" style={{ color:"#6366f1" }}>
-                {filtered.reduce((s,su)=>s+su.sharesCount,0).toLocaleString("ar-EG")} سهم
-              </span>
+  {filtered.reduce((s,su)=>s+su.sharesCount,0).toLocaleString("ar-EG", { maximumFractionDigits: 2 })} سهم
+</span>
             </div>
           )}
         </div>
@@ -383,10 +384,10 @@ export default function ShareholderUnitsPage() {
             <label className="block text-xs font-semibold mb-1.5" style={{ color:"var(--muted)" }}>
               عدد الأسهم <span className="text-red-400">*</span>
             </label>
-            <input type="number" min={1} required value={form.sharesCount}
-              onChange={e => setForm(p => ({ ...p, sharesCount:e.target.value }))}
-              placeholder="مثال: 10"
-              className="w-full px-3.5 py-2.5 rounded-xl text-sm border focus:outline-none" style={iStyle()} />
+            <input type="number" min={0.01} step="0.01" required value={form.sharesCount}
+  onChange={e => setForm(p => ({ ...p, sharesCount:e.target.value }))}
+  placeholder="مثال: 10 أو 0.5 أو 1.25"
+  className="w-full px-3.5 py-2.5 rounded-xl text-sm border focus:outline-none" style={iStyle()} />
           </div>
 
           {formErr && (
@@ -428,11 +429,11 @@ export default function ShareholderUnitsPage() {
               <label className="block text-xs font-semibold mb-1.5" style={{ color:"var(--muted)" }}>
                 عدد الأسهم الجديد
               </label>
-              <input type="number" min={1} value={editShares}
-                onChange={e => setEditShares(parseInt(e.target.value) || 0)}
-                className="w-full px-3.5 py-2.5 rounded-xl text-sm border focus:outline-none font-bold text-center"
-                style={{ ...iStyle(), color:"#6366f1", fontSize:18 }}
-              />
+              <input type="number" min={0.01} step="0.01" value={editShares}
+  onChange={e => setEditShares(parseFloat(e.target.value) || 0)}
+  className="w-full px-3.5 py-2.5 rounded-xl text-sm border focus:outline-none font-bold text-center"
+  style={{ ...iStyle(), color:"#6366f1", fontSize:18 }}
+/>
             </div>
 
             {formErr && (

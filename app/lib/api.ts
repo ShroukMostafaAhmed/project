@@ -607,15 +607,15 @@ export const api = {
       () => request<UnitAuditDto>(`/Units/${unitId}/audits`, { method: "POST", body: JSON.stringify(data) }),
       () => {
         const hasPending = MOCK_UNIT_AUDITS.some(a => a.unitId === unitId && a.status === 0);
-        if (hasPending) throw new Error("يوجد جرد منتظر بالفعل لهذا المشروع — انتظر حتى يتقفل أولاً");
+        if (hasPending) throw new Error("يوجد جرد مفتوح بالفعل لهذا المشروع — اقفله الأول");
         const next: UnitAuditDto = {
           id:        Date.now(),
           unitId,
           unitName:  null,
           name:      data.name,
           fromDate:  data.fromDate,
-          toDate:    data.toDate,
-          status:    0, // Pending
+          toDate:    null,           // لا يوجد تاريخ نهاية — القفل يدوي
+          status:    UnitAuditStatus.Pending,
           totalExpenses: 0,
           shareholderShares: [],
           previousUnitAuditId: data.previousUnitAuditId ?? null,
@@ -640,9 +640,12 @@ export const api = {
         } as UnitExpenseSummaryDto;
       }
     ),
-    // قفل يدوي (اختياري — الـ Scheduler هو الأساس)
-    close: (unitId: number, auditId: number) => withAlwaysFallback(
-      () => request<UnitAuditDto>(`/Units/${unitId}/audits/${auditId}/close`, { method: "POST" }),
+    // قفل يدوي بزرار — يستدعي /Units/{unitId}/audits/{auditId}/close
+    close: (unitId: number, auditId: number, closeDate?: string) => withAlwaysFallback(
+      () => request<UnitAuditDto>(`/Units/${unitId}/audits/${auditId}/close`, {
+        method: "POST",
+        body: JSON.stringify({ closeDate: closeDate ?? new Date().toISOString() }),
+      }),
       () => {
         MOCK_UNIT_AUDITS = MOCK_UNIT_AUDITS.map(a =>
           a.id === auditId ? { ...a, status: 1, closedAt: new Date().toISOString() } : a

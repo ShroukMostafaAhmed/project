@@ -107,8 +107,9 @@ export default function AdminOwnershipsPage() {
     if (!shareholderId) { setShareholderUnits([]); return; }
     setLoadingShUnits(true);
     try {
-      const data = await api.units.byShareholder(parseInt(shareholderId));
-      setShareholderUnits(Array.isArray(data?.units) ? data.units : []);
+      const data = await api.shareholderUnits.byShareholder(parseInt(shareholderId));
+      const rawUnits = (data as import("@/app/lib/types").ShareholderFullDto).units ?? [];
+      setShareholderUnits(rawUnits);
     } catch {
       setShareholderUnits([]);
     } finally {
