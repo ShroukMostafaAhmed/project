@@ -127,7 +127,7 @@ export default function ShareholderFinancePage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-sm" style={{ color: "var(--foreground)" }}>{u.unitName ?? `مشروع ${u.unitId}`}</p>
                     <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
-                      {u.sharesCount} سهم — {u.sharePercentage?.toFixed(1)}%
+                      {u.sharesCount} سهم — {u.sharePercentage?.toFixed(4).replace(/\.?0+$/, '')}%
                     </p>
                   </div>
                   <div className="hidden sm:flex items-center gap-5 shrink-0">

@@ -476,7 +476,7 @@ export default function AdminOwnershipsPage() {
                               }} />
                           </div>
                           <span className="text-sm font-bold" style={{ color:"#6366f1" }}>
-                            {o.ownershipPercentage}%
+                            {o.ownershipPercentage.toFixed(4).replace(/\.?0+$/, '')}%
                           </span>
                         </div>
                       </td>
@@ -640,25 +640,25 @@ export default function AdminOwnershipsPage() {
               نسبة الملكية (%) <span className="text-red-400">*</span>
             </label>
             <div className="flex items-center gap-3">
-              <input type="range" min={0.01}
+              <input type="range" min={0.0001}
                 max={modalAvailApts.length > 0 && form.apartmentId
                   ? (modalAvailApts.find(a => a.apartmentId === form.apartmentId)?.remainingOwnershipPercentage ?? 100)
                   : 100}
-                step={0.01}
+                step={0.0001}
                 value={form.ownershipPercentage ?? 0}
                 onChange={e => setForm(p => ({ ...p, ownershipPercentage: parseFloat(e.target.value) }))}
                 className="flex-1 accent-indigo-600"
               />
-              <div className="w-20 text-center">
-                <input type="number" min={0.01}
+              <div className="w-24 text-center">
+                <input type="number" min={0.0001}
                   max={modalAvailApts.length > 0 && form.apartmentId
                     ? (modalAvailApts.find(a => a.apartmentId === form.apartmentId)?.remainingOwnershipPercentage ?? 100)
                     : 100}
-                  step={0.01}
+                  step={0.0001}
                   value={form.ownershipPercentage ?? 0}
                   onChange={e => setForm(p => ({ ...p, ownershipPercentage: parseFloat(e.target.value) || 0 }))}
                   className="w-full px-2 py-1.5 rounded-lg text-sm border text-center font-bold focus:outline-none"
-                  style={{ ...inputStyle(), color:"#6366f1" }}
+                  style={{ ...inputStyle(), color:"#6366f1", fontSize: 12 }}
                 />
               </div>
               <span className="text-sm font-bold" style={{ color:"#6366f1" }}>%</span>
@@ -707,17 +707,17 @@ export default function AdminOwnershipsPage() {
                 نسبة الملكية الجديدة (%)
               </label>
               <div className="flex items-center gap-3">
-                <input type="range" min={0.01} max={100} step={0.01}
+                <input type="range" min={0.0001} max={100} step={0.0001}
                   value={editPct}
                   onChange={e => setEditPct(parseFloat(e.target.value))}
                   className="flex-1 accent-indigo-600"
                 />
-                <div className="w-20">
-                  <input type="number" min={0.01} max={100} step={0.01}
+                <div className="w-24">
+                  <input type="number" min={0.0001} max={100} step={0.0001}
                     value={editPct}
                     onChange={e => setEditPct(parseFloat(e.target.value) || 0)}
                     className="w-full px-2 py-1.5 rounded-lg text-sm border text-center font-bold focus:outline-none"
-                    style={{ ...inputStyle(), color:"#6366f1" }}
+                    style={{ ...inputStyle(), color:"#6366f1", fontSize: 12 }}
                   />
                 </div>
                 <span className="text-sm font-bold" style={{ color:"#6366f1" }}>%</span>

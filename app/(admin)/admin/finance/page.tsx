@@ -583,7 +583,7 @@ async function handlePay(e: React.FormEvent) {
                                     {audit.shareholderShares.map(s => (
                                       <tr key={s.shareholderId} style={{ borderBottom: "1px solid var(--card-border)" }}>
                                         <td style={{ padding: "8px", fontSize: 13, color: "var(--foreground)", fontWeight: 500 }}>{s.shareholderName ?? `#${s.shareholderId}`}</td>
-                                        <td style={{ padding: "8px", fontSize: 12, color: "var(--muted)", textAlign: "center" }}>{s.sharePercentage.toFixed(1)}%</td>
+                                        <td style={{ padding: "8px", fontSize: 12, color: "var(--muted)", textAlign: "center" }}>{s.sharePercentage.toFixed(4).replace(/\.?0+$/, '')}%</td>
                                         <td style={{ padding: "8px", fontSize: 13, fontWeight: 700, color: "#ef4444", textAlign: "center" }}>{formatCurrency(s.shareAmount)}</td>
                                       </tr>
                                     ))}
@@ -842,7 +842,7 @@ async function handlePay(e: React.FormEvent) {
                                 </p>
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(99,102,241,.1)", color: "#6366f1" }}>
-                                    {u.sharesCount} سهم — {u.sharePercentage?.toFixed(1)}%
+                                    {u.sharesCount} سهم — {u.sharePercentage?.toFixed(4).replace(/\.?0+$/, '')}%
                                   </span>
                                   {/* رصيد دائن على مستوى الوحدة */}
                                   {uCredit > 0.009 && (
